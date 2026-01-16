@@ -341,6 +341,14 @@
       <div class="card">
         <h2>⚙️ Stress Tester Settings</h2>
         
+        <h3>Income Target</h3>
+        <div class="grid grid-4">
+          <div><label>Target Gross Salary (£)</label><input type="number" id="ssBaseSalary" value="30000"></div>
+        </div>
+        <div class="info-box">
+          <strong>💰 Target:</strong> The gross annual income target for SIPP withdrawals. Draws will fill up to this amount (or Basic Rate Limit, whichever is lower).
+        </div>
+
         <h3>Fund Minimums (Year 0, real terms)</h3>
         <div class="grid grid-4">
           <div><label>Equity Minimum (£)</label><input type="number" id="ssEquityMin" value="250000"></div>
@@ -351,7 +359,7 @@
         <div class="info-box">
           <strong>📉 Glidepath:</strong> Equity & Bond minimums inflate with simulated CPI but deplete linearly to £0. Cash inflates only (maintains real value).
         </div>
-        
+
         <h3>Tax Thresholds (Year 0)</h3>
         <div class="grid grid-4">
           <div><label>Personal Allowance (£)</label><input type="number" id="ssPA" value="12570"></div>
@@ -2675,6 +2683,7 @@ function showGlidepath() {
 
 function loadStressSettings() {
   var s = getStressDB().settings;
+  document.getElementById('ssBaseSalary').value = s.baseSalary;
   document.getElementById('ssEquityMin').value = s.equityMin;
   document.getElementById('ssBondMin').value = s.bondMin;
   document.getElementById('ssCashTarget').value = s.cashTarget;
@@ -2695,6 +2704,7 @@ function loadStressSettings() {
 
 function saveStressSettings() {
   var db = getStressDB();
+  db.settings.baseSalary = +document.getElementById('ssBaseSalary').value;
   db.settings.equityMin = +document.getElementById('ssEquityMin').value;
   db.settings.bondMin = +document.getElementById('ssBondMin').value;
   db.settings.cashTarget = +document.getElementById('ssCashTarget').value;
