@@ -84,6 +84,96 @@
     .warning-box { background: rgba(240,198,116,0.1); border: 1px solid rgba(240,198,116,0.3); border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 13px; }
     .input-warning { background: rgba(240,198,116,0.1); border: 1px solid rgba(240,198,116,0.3); border-radius: 6px; padding: 10px 14px; margin: -10px 0 20px 0; font-size: 12px; color: var(--warning); }
     .input-warning.hidden { display: none; }
+
+    /* Mobile-first responsive design */
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      .container { padding: 0; }
+
+      /* Main tabs - smaller on mobile */
+      .main-tabs { margin-bottom: 16px; }
+      .main-tab { padding: 14px 10px; font-size: 14px; }
+      .main-tab:first-child { border-radius: 8px 0 0 8px; }
+      .main-tab:last-child { border-radius: 0 8px 8px 0; }
+
+      /* Cards - less padding */
+      .card { padding: 16px; margin-bottom: 12px; border-radius: 10px; }
+      .card h2 { font-size: 15px; margin-bottom: 16px; }
+      .card h3 { font-size: 13px; margin: 16px 0 12px; }
+
+      /* Sub-tabs - scrollable horizontally */
+      .sub-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; gap: 6px; }
+      .sub-tab { padding: 8px 14px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+
+      /* All grids collapse to 1 column on small screens */
+      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .grid-7 { grid-template-columns: 1fr; gap: 12px; }
+
+      /* Inputs - larger touch targets */
+      input, select { padding: 14px 12px; font-size: 16px; border-radius: 8px; }
+      label { font-size: 10px; margin-bottom: 4px; }
+
+      /* Buttons - full width on mobile */
+      button { width: 100%; padding: 16px 20px; font-size: 15px; border-radius: 8px; }
+      button.small { padding: 10px 14px; font-size: 13px; }
+      .button-row { display: flex; flex-direction: column; gap: 10px; }
+
+      /* Decision box */
+      .decision-box { padding: 16px; border-radius: 10px; }
+      .amount { font-size: 24px; }
+
+      /* Stats */
+      .stat-box { padding: 14px; border-radius: 8px; }
+      .stat-value { font-size: 24px; }
+      .stat-label { font-size: 10px; }
+
+      /* Tax breakdown */
+      .tax-breakdown { padding: 12px; }
+      .tax-row { font-size: 12px; padding: 5px 0; }
+
+      /* Charts - full width, shorter */
+      .chart-container { padding: 12px; margin: 12px 0; border-radius: 8px; overflow-x: auto; }
+      .chart-title { font-size: 11px; margin-bottom: 8px; }
+      canvas { height: 250px !important; min-width: 500px; }
+      .legend { gap: 12px; font-size: 11px; }
+
+      /* Tables - horizontal scroll */
+      .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      table { min-width: 500px; font-size: 12px; }
+      th, td { padding: 10px 8px; }
+
+      /* Scenario rows */
+      .scenario-row { grid-template-columns: 1.5fr 1fr 1fr 0.8fr; gap: 8px; padding: 10px 8px; font-size: 12px; }
+      .scenario-row.header { font-size: 10px; }
+
+      /* Info/warning boxes */
+      .info-box, .warning-box { padding: 12px; font-size: 12px; margin: 12px 0; }
+      .input-warning { padding: 8px 12px; font-size: 11px; margin: -6px 0 12px 0; }
+
+      /* Alerts */
+      .alert { padding: 12px 14px; font-size: 12px; }
+
+      /* History table adjustments */
+      .history-entry { font-size: 12px; }
+
+      /* Modal adjustments */
+      .modal-content { margin: 10px; padding: 20px; max-height: 90vh; overflow-y: auto; }
+    }
+
+    /* Medium screens (tablets) */
+    @media (min-width: 601px) and (max-width: 900px) {
+      body { padding: 16px; }
+      .grid-5, .grid-6, .grid-7 { grid-template-columns: repeat(3, 1fr); }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .card { padding: 20px; }
+      .stat-value { font-size: 28px; }
+      canvas { height: 300px !important; }
+    }
+
+    /* Touch-friendly improvements */
+    @media (hover: none) and (pointer: coarse) {
+      button, .sub-tab, .main-tab { min-height: 44px; }
+      input, select { min-height: 48px; }
+    }
   </style>
 </head>
 <body>
@@ -105,7 +195,7 @@
         <h2>📅 Enter Monthly Values</h2>
         <div class="grid grid-4">
           <div><label>Month</label><input type="month" id="entryMonth"></div>
-          <div><label>PACW Balance (£)</label><input type="number" id="entryPACW" placeholder="250000"></div>
+          <div><label>Equity Fund (£)</label><input type="number" id="entryPACW" placeholder="250000"></div>
           <div><label>CGT Balance (£)</label><input type="number" id="entryCGT" placeholder="200000"></div>
           <div><label>CSH2 Balance (£)</label><input type="number" id="entryCSH2" placeholder="50000"></div>
         </div>
@@ -242,7 +332,7 @@
           <div><label>Duration (years)</label><input type="number" id="ssDuration" value="35"></div>
         </div>
         <div class="info-box">
-          <strong>📉 Glidepath:</strong> PACW & CGT minimums inflate with simulated CPI but deplete linearly to £0. CSH2 inflates only (maintains real value).
+          <strong>📉 Glidepath:</strong> Equity & Bond minimums inflate with simulated CPI but deplete linearly to £0. Cash inflates only (maintains real value).
         </div>
         
         <h3>Tax Thresholds (Year 0)</h3>
@@ -518,11 +608,11 @@ function analyzeFailure(result, returns, config, startYear) {
 
   // Determine worst affected fund
   if (pacwDrop < cgtDrop && pacwDrop < csh2Drop) {
-    analysis.worstFund = 'PACW';
+    analysis.worstFund = 'Equity';
   } else if (cgtDrop < csh2Drop) {
-    analysis.worstFund = 'CGT';
+    analysis.worstFund = 'Bond';
   } else {
-    analysis.worstFund = 'CSH2';
+    analysis.worstFund = 'Cash';
   }
 
   // Calculate recommendations
@@ -622,15 +712,15 @@ function showStressTab(tab) {
 // Check if stress test inputs differ from settings minimums
 function checkStressInputs(prefix) {
   var s = getStressDB().settings;
-  var pacw = +document.getElementById(prefix + 'PACW').value;
-  var cgt = +document.getElementById(prefix + 'CGT').value;
-  var csh2 = +document.getElementById(prefix + 'CSH2').value;
+  var pacw = +document.getElementById(prefix + 'Equity').value;
+  var cgt = +document.getElementById(prefix + 'Bond').value;
+  var csh2 = +document.getElementById(prefix + 'Cash').value;
   var warningEl = document.getElementById(prefix + 'InputWarning');
 
   var diffs = [];
-  if (pacw !== s.pacwMin) diffs.push('PACW: £' + pacw.toLocaleString() + ' vs min £' + s.pacwMin.toLocaleString());
-  if (cgt !== s.cgtMin) diffs.push('CGT: £' + cgt.toLocaleString() + ' vs min £' + s.cgtMin.toLocaleString());
-  if (csh2 !== s.csh2Target) diffs.push('CSH2: £' + csh2.toLocaleString() + ' vs target £' + s.csh2Target.toLocaleString());
+  if (pacw !== s.pacwMin) diffs.push('Equity: £' + pacw.toLocaleString() + ' vs min £' + s.pacwMin.toLocaleString());
+  if (cgt !== s.cgtMin) diffs.push('Bond: £' + cgt.toLocaleString() + ' vs min £' + s.cgtMin.toLocaleString());
+  if (csh2 !== s.csh2Target) diffs.push('Cash: £' + csh2.toLocaleString() + ' vs target £' + s.csh2Target.toLocaleString());
 
   if (diffs.length > 0) {
     var totalStart = pacw + cgt + csh2;
@@ -668,7 +758,7 @@ function generateDecision() {
   // Validate all required fields
   var missing = [];
   if (!dateStr) missing.push('Month');
-  if (pacwVal === '' || pacwVal === null) missing.push('PACW Balance');
+  if (pacwVal === '' || pacwVal === null) missing.push('Equity Fund');
   if (cgtVal === '' || cgtVal === null) missing.push('CGT Balance');
   if (csh2Val === '' || csh2Val === null) missing.push('CSH2 Balance');
 
@@ -722,7 +812,7 @@ function calcDecision(dateStr, pacw, cgt, csh2, db) {
 
   // Count consecutive CSH2 draws from history
   for (var i = priorHistory.length - 1; i >= 0; i--) {
-    if (priorHistory[i].source === 'CSH2') consec++; else break;
+    if (priorHistory[i].source === 'Cash') consec++; else break;
   }
 
   // Check if we're continuing protection from last month
@@ -844,9 +934,9 @@ function calcDecision(dateStr, pacw, cgt, csh2, db) {
     source = 'Growth';
     var pS = Math.max(0, pacw - adjPACW), cS = Math.max(0, cgt - adjCGT), tot = pS + cS;
     if (tot > 0) { dPACW = sipp * pS / tot; dCGT = sipp * cS / tot; reason = 'Healthy'; }
-    else { source = 'CSH2'; dCSH2 = sipp; reason = 'At min'; }
+    else { source = 'Cash'; dCSH2 = sipp; reason = 'At min'; }
   } else {
-    source = 'CSH2'; dCSH2 = sipp;
+    source = 'Cash'; dCSH2 = sipp;
     reason = inProtection ? 'Protection' : 'Below min';
     if (csh2 < sipp) warn = 'CSH2 low!';
   }
@@ -855,10 +945,10 @@ function calcDecision(dateStr, pacw, cgt, csh2, db) {
   var pDev = pacw - adjPACW, cDev = cgt - adjCGT;
   if (pDev > 5000 && cDev < -5000) {
     var mv = Math.floor(Math.min(pDev, -cDev) / 1000) * 1000;
-    if (mv >= 5000) rebal = 'Move £' + mv.toLocaleString() + ' PACW→CGT';
+    if (mv >= 5000) rebal = 'Move £' + mv.toLocaleString() + ' Equity→Bond';
   } else if (cDev > 5000 && pDev < -5000) {
     var mv = Math.floor(Math.min(cDev, -pDev) / 1000) * 1000;
-    if (mv >= 5000) rebal = 'Move £' + mv.toLocaleString() + ' CGT→PACW';
+    if (mv >= 5000) rebal = 'Move £' + mv.toLocaleString() + ' Bond→Equity';
   }
   
   // CSH2 replenishment suggestion
@@ -871,7 +961,7 @@ function calcDecision(dateStr, pacw, cgt, csh2, db) {
       // Suggest replenishing up to 30% of shortfall or 50% of excess, whichever is smaller
       var repAmount = Math.floor(Math.min(csh2Shortfall * 0.3, excess * 0.5) / 1000) * 1000;
       if (repAmount >= 5000) {
-        csh2Replenish = 'Replenish CSH2: Move £' + repAmount.toLocaleString() + ' from growth funds';
+        csh2Replenish = 'Replenish Cash: Move £' + repAmount.toLocaleString() + ' from growth funds';
       }
     }
   }
@@ -880,8 +970,8 @@ function calcDecision(dateStr, pacw, cgt, csh2, db) {
     date: dateStr, taxYear: getTaxYear(dateStr), pacw: pacw, cgt: cgt, csh2: csh2,
     total: pacw + cgt + csh2, source: source, inProtection: inProtection,
     consec: consec, sipp: sipp, isa: isa, other: OTHER / 12, state: STATE / 12,
-    dPACW: dPACW, dCGT: dCGT, dCSH2: dCSH2, rebal: rebal, warn: warn, reason: reason,
-    note: note, adjPACW: adjPACW, adjCGT: adjCGT, adjCSH2: adjCSH2, yearNum: yearNum,
+    dEquity: dPACW, dBond: dCGT, dCash: dCSH2, rebal: rebal, warn: warn, reason: reason,
+    note: note, adjEquity: adjPACW, adjBond: adjCGT, adjCash: adjCSH2, yearNum: yearNum,
     stdSipp: stdSippMonthly, boostAmount: boostAmount, csh2Replenish: csh2Replenish,
     totalGrowth: totalGrowth, minGrowth: minGrowth
   };
@@ -891,9 +981,9 @@ function renderDecisionOutput(d) {
   var cls = 'decision-box', badge = '<span class="badge badge-standard">Standard</span>';
   if (d.inProtection) { cls += ' protection'; badge = '<span class="badge badge-protection">Protection</span>'; }
   else if (d.boostAmount > 50) { badge = '<span class="badge" style="background:#2ea043;color:white;">Tax Boost</span>'; }
-  else if (d.source === 'CSH2') cls += ' csh2-draw';
+  else if (d.source === 'Cash') cls += ' csh2-draw';
   
-  var src = d.source === 'Growth' ? 'PACW: £' + d.dPACW.toFixed(0) + ' | CGT: £' + d.dCGT.toFixed(0) : 'CSH2: £' + d.dCSH2.toFixed(0);
+  var src = d.source === 'Growth' ? 'Equity: £' + d.dPACW.toFixed(0) + ' | Bond: £' + d.dCGT.toFixed(0) : 'Cash: £' + d.dCSH2.toFixed(0);
   var grossTaxable = (d.sipp + d.other + d.state) * 12;
   var PA = 12570, BRL = 50270;
   var annualTax = grossTaxable <= PA ? 0 : (Math.min(grossTaxable, BRL) - PA) * 0.2;
@@ -907,7 +997,7 @@ function renderDecisionOutput(d) {
   h += '<div class="amount">£' + d.sipp.toFixed(2) + '</div>';
   h += '<div style="font-size:13px;"><strong>Source:</strong> ' + d.source + '<br><span style="color:var(--text-muted);font-family:monospace;">' + src + '</span></div>';
   h += '<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:12px;">';
-  h += '<strong>Glidepath:</strong><br>PACW: £' + d.adjPACW.toLocaleString() + '<br>CGT: £' + d.adjCGT.toLocaleString() + '<br>CSH2: £' + d.adjCSH2.toLocaleString() + '</div></div>';
+  h += '<strong>Glidepath:</strong><br>Equity: £' + d.adjPACW.toLocaleString() + '<br>Bond: £' + d.adjCGT.toLocaleString() + '<br>Cash: £' + d.adjCSH2.toLocaleString() + '</div></div>';
   h += '<div><div style="font-size:12px;color:var(--text-muted);">Income</div>';
   h += '<div class="tax-breakdown" style="margin-top:8px;">';
   h += '<div class="tax-row" style="color:var(--primary);"><span>SIPP</span><span>£' + d.sipp.toFixed(2) + '</span></div>';
@@ -924,7 +1014,7 @@ function renderDecisionOutput(d) {
   // Debug info
   h += '<div class="alert alert-info" style="margin-top:12px;font-size:11px;">';
   h += '<strong>Debug:</strong> Growth: £' + d.totalGrowth.toLocaleString() + ' | Min: £' + d.minGrowth.toLocaleString();
-  h += ' | Consec CSH2: ' + d.consec + ' | Below min? ' + (d.totalGrowth < d.minGrowth ? 'YES' : 'NO');
+  h += ' | Consec Cash: ' + d.consec + ' | Below min? ' + (d.totalGrowth < d.minGrowth ? 'YES' : 'NO');
   h += '</div>';
   
   h += '</div>';
@@ -1352,8 +1442,8 @@ function runMonteCarlo() {
     h += '<div class="' + bufferClass + '" style="margin-bottom:20px;">';
     h += '<strong>' + bufferIcon + ' Starting Values vs Settings:</strong><br>';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0;">';
-    h += '<div><strong>Starting:</strong> £' + totalStart.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">PACW: £' + cfg.pacwStart.toLocaleString() + ' | CGT: £' + cfg.cgtStart.toLocaleString() + ' | CSH2: £' + cfg.csh2Start.toLocaleString() + '</span></div>';
-    h += '<div><strong>Minimums (Settings):</strong> £' + totalMin.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">PACW: £' + s.pacwMin.toLocaleString() + ' | CGT: £' + s.cgtMin.toLocaleString() + ' | CSH2: £' + s.csh2Target.toLocaleString() + '</span></div>';
+    h += '<div><strong>Starting:</strong> £' + totalStart.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">Equity: £' + cfg.pacwStart.toLocaleString() + ' | Bond: £' + cfg.cgtStart.toLocaleString() + ' | Cash: £' + cfg.csh2Start.toLocaleString() + '</span></div>';
+    h += '<div><strong>Minimums (Settings):</strong> £' + totalMin.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">Equity: £' + s.pacwMin.toLocaleString() + ' | Bond: £' + s.cgtMin.toLocaleString() + ' | Cash: £' + s.csh2Target.toLocaleString() + '</span></div>';
     h += '<div><strong>Buffer:</strong> ' + (buffer >= 0 ? '+' : '') + '£' + buffer.toLocaleString() + ' (' + (buffer >= 0 ? '+' : '') + bufferPct + '%)<br><span style="font-size:11px;color:var(--text-muted);">Cushion above glidepath floor</span></div>';
     h += '</div>';
     if (buffer > totalMin * 0.5) {
@@ -1946,8 +2036,8 @@ function runHistorical() {
     h += '<div class="' + bufferClass + '" style="margin-bottom:20px;">';
     h += '<strong>' + bufferIcon + ' Starting Values vs Settings:</strong><br>';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0;">';
-    h += '<div><strong>Starting:</strong> £' + totalStart.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">PACW: £' + cfg.pacwStart.toLocaleString() + ' | CGT: £' + cfg.cgtStart.toLocaleString() + ' | CSH2: £' + cfg.csh2Start.toLocaleString() + '</span></div>';
-    h += '<div><strong>Minimums (Settings):</strong> £' + totalMin.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">PACW: £' + s.pacwMin.toLocaleString() + ' | CGT: £' + s.cgtMin.toLocaleString() + ' | CSH2: £' + s.csh2Target.toLocaleString() + '</span></div>';
+    h += '<div><strong>Starting:</strong> £' + totalStart.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">Equity: £' + cfg.pacwStart.toLocaleString() + ' | Bond: £' + cfg.cgtStart.toLocaleString() + ' | Cash: £' + cfg.csh2Start.toLocaleString() + '</span></div>';
+    h += '<div><strong>Minimums (Settings):</strong> £' + totalMin.toLocaleString() + '<br><span style="font-size:11px;color:var(--text-muted);">Equity: £' + s.pacwMin.toLocaleString() + ' | Bond: £' + s.cgtMin.toLocaleString() + ' | Cash: £' + s.csh2Target.toLocaleString() + '</span></div>';
     h += '<div><strong>Buffer:</strong> ' + (buffer >= 0 ? '+' : '') + '£' + buffer.toLocaleString() + ' (' + (buffer >= 0 ? '+' : '') + bufferPct + '%)<br><span style="font-size:11px;color:var(--text-muted);">Cushion above glidepath floor</span></div>';
     h += '</div>';
     if (buffer > totalMin * 0.5) {
@@ -2524,7 +2614,7 @@ function showGlidepath() {
   var inf = +document.getElementById('gpInflation').value / 100;
   var dur = +document.getElementById('gpDuration').value;
   
-  var h = '<table><thead><tr><th>Yr</th><th>PACW Min</th><th>CGT Min</th><th>CSH2 Target</th><th>Total Min</th></tr></thead><tbody>';
+  var h = '<table><thead><tr><th>Yr</th><th>PACW Min</th><th>CGT Min</th><th>Cash Target</th><th>Total Min</th></tr></thead><tbody>';
   for (var y = 0; y <= dur; y++) {
     var cumInf = Math.pow(1 + inf, y);
     var pacw = calcGlidepath(s.pacwMin, y, dur, cumInf, true);
