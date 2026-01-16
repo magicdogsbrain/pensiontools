@@ -101,9 +101,26 @@
       .card h2 { font-size: 15px; margin-bottom: 16px; }
       .card h3 { font-size: 13px; margin: 16px 0 12px; }
 
-      /* Sub-tabs - scrollable horizontally */
-      .sub-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; gap: 6px; }
-      .sub-tab { padding: 8px 14px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+      /* Sub-tabs - wrap into grid on mobile for visibility */
+      .sub-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+      }
+      .sub-tab {
+        padding: 12px 8px;
+        font-size: 11px;
+        white-space: nowrap;
+        text-align: center;
+        border: 1px solid var(--border);
+        background: var(--card);
+      }
+      .sub-tab.active {
+        background: rgba(240,198,116,0.2);
+        border-color: var(--primary);
+      }
 
       /* All grids collapse to 1 column on small screens */
       .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .grid-7 { grid-template-columns: 1fr; gap: 12px; }
@@ -196,8 +213,8 @@
         <div class="grid grid-4">
           <div><label>Month</label><input type="month" id="entryMonth"></div>
           <div><label>Equity Fund (£)</label><input type="number" id="entryPACW" placeholder="250000"></div>
-          <div><label>CGT Balance (£)</label><input type="number" id="entryCGT" placeholder="200000"></div>
-          <div><label>CSH2 Balance (£)</label><input type="number" id="entryCSH2" placeholder="50000"></div>
+          <div><label>Bond Fund (£)</label><input type="number" id="entryCGT" placeholder="200000"></div>
+          <div><label>Cash Fund (£)</label><input type="number" id="entryCSH2" placeholder="50000"></div>
         </div>
         <div style="margin-top: 20px; text-align: center;"><button onclick="generateDecision()">Generate Decision</button></div>
       </div>
@@ -224,9 +241,9 @@
         <h2>⚙️ Decision Tool Settings</h2>
         <h3>Fund Minimums (Year 0 baseline)</h3>
         <div class="grid grid-4">
-          <div><label>PACW Minimum (£)</label><input type="number" id="dsPACWMin" value="250000"></div>
-          <div><label>CGT Minimum (£)</label><input type="number" id="dsCGTMin" value="200000"></div>
-          <div><label>CSH2 Target (£)</label><input type="number" id="dsCSH2Target" value="50000"></div>
+          <div><label>Equity Minimum (£)</label><input type="number" id="dsPACWMin" value="250000"></div>
+          <div><label>Bond Minimum (£)</label><input type="number" id="dsCGTMin" value="200000"></div>
+          <div><label>Cash Target (£)</label><input type="number" id="dsCSH2Target" value="50000"></div>
           <div><label>Depletion Duration (years)</label><input type="number" id="dsDuration" value="35"></div>
         </div>
         <h3>Income Settings</h3>
@@ -234,7 +251,7 @@
           <div><label>Target Gross Salary</label><input type="number" id="dsBaseSalary" value="30000"></div>
           <div><label>Protection Reduction (%)</label><input type="number" id="dsProtectionFactor" value="20"></div>
           <div><label>Recovery Buffer (£)</label><input type="number" id="dsRecoveryBuffer" value="15000"></div>
-          <div><label>CSH2 Before Protection</label><input type="number" id="dsConsecutiveLimit" value="3"></div>
+          <div><label>Cash Draws Before Protection</label><input type="number" id="dsConsecutiveLimit" value="3"></div>
         </div>
         <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
           <button onclick="saveDecisionSettings()">Save Settings</button>
@@ -260,9 +277,9 @@
         <h2>🎲 Monte Carlo Simulation</h2>
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">1,000 scenarios. SIPP draw = BRL - Other - State Pension (stays below 40% tax).</p>
         <div class="grid grid-6" style="margin-bottom: 20px;">
-          <div><label>PACW Start (£)</label><input type="number" id="mcPACW" value="250000" oninput="checkStressInputs('mc')"></div>
-          <div><label>CGT Start (£)</label><input type="number" id="mcCGT" value="200000" oninput="checkStressInputs('mc')"></div>
-          <div><label>CSH2 Start (£)</label><input type="number" id="mcCSH2" value="50000" oninput="checkStressInputs('mc')"></div>
+          <div><label>Equity Start (£)</label><input type="number" id="mcPACW" value="250000" oninput="checkStressInputs('mc')"></div>
+          <div><label>Bond Start (£)</label><input type="number" id="mcCGT" value="200000" oninput="checkStressInputs('mc')"></div>
+          <div><label>Cash Start (£)</label><input type="number" id="mcCSH2" value="50000" oninput="checkStressInputs('mc')"></div>
           <div><label>Years</label><input type="number" id="mcYears" value="35"></div>
           <div><label>Sample Lines</label><input type="number" id="mcSampleLines" value="100"></div>
           <div style="display: flex; align-items: flex-end;"><button onclick="runMonteCarlo()" style="width: 100%;">Run</button></div>
@@ -275,9 +292,9 @@
       <div class="card">
         <h2>📜 Historical Sequence Analysis</h2>
         <div class="grid grid-5" style="margin-bottom: 20px;">
-          <div><label>PACW Start (£)</label><input type="number" id="histPACW" value="250000" oninput="checkStressInputs('hist')"></div>
-          <div><label>CGT Start (£)</label><input type="number" id="histCGT" value="200000" oninput="checkStressInputs('hist')"></div>
-          <div><label>CSH2 Start (£)</label><input type="number" id="histCSH2" value="50000" oninput="checkStressInputs('hist')"></div>
+          <div><label>Equity Start (£)</label><input type="number" id="histPACW" value="250000" oninput="checkStressInputs('hist')"></div>
+          <div><label>Bond Start (£)</label><input type="number" id="histCGT" value="200000" oninput="checkStressInputs('hist')"></div>
+          <div><label>Cash Start (£)</label><input type="number" id="histCSH2" value="50000" oninput="checkStressInputs('hist')"></div>
           <div><label>Years</label><input type="number" id="histYears" value="35"></div>
           <div style="display: flex; align-items: flex-end;"><button onclick="runHistorical()" style="width: 100%;">Run</button></div>
         </div>
@@ -289,9 +306,9 @@
       <div class="card">
         <h2>⚡ Stress Scenarios</h2>
         <div class="grid grid-4" style="margin-bottom: 20px;">
-          <div><label>PACW Start (£)</label><input type="number" id="scenPACW" value="250000" oninput="checkStressInputs('scen')"></div>
-          <div><label>CGT Start (£)</label><input type="number" id="scenCGT" value="200000" oninput="checkStressInputs('scen')"></div>
-          <div><label>CSH2 Start (£)</label><input type="number" id="scenCSH2" value="50000" oninput="checkStressInputs('scen')"></div>
+          <div><label>Equity Start (£)</label><input type="number" id="scenPACW" value="250000" oninput="checkStressInputs('scen')"></div>
+          <div><label>Bond Start (£)</label><input type="number" id="scenCGT" value="200000" oninput="checkStressInputs('scen')"></div>
+          <div><label>Cash Start (£)</label><input type="number" id="scenCSH2" value="50000" oninput="checkStressInputs('scen')"></div>
           <div style="display: flex; align-items: flex-end;"><button onclick="runScenarios()" style="width: 100%;">Run</button></div>
         </div>
         <div id="scenInputWarning" class="input-warning hidden"></div>
@@ -326,9 +343,9 @@
         
         <h3>Fund Minimums (Year 0, real terms)</h3>
         <div class="grid grid-4">
-          <div><label>PACW Minimum (£)</label><input type="number" id="ssPACWMin" value="250000"></div>
-          <div><label>CGT Minimum (£)</label><input type="number" id="ssCGTMin" value="200000"></div>
-          <div><label>CSH2 Target (£)</label><input type="number" id="ssCSH2Target" value="50000"></div>
+          <div><label>Equity Minimum (£)</label><input type="number" id="ssPACWMin" value="250000"></div>
+          <div><label>Bond Minimum (£)</label><input type="number" id="ssCGTMin" value="200000"></div>
+          <div><label>Cash Target (£)</label><input type="number" id="ssCSH2Target" value="50000"></div>
           <div><label>Duration (years)</label><input type="number" id="ssDuration" value="35"></div>
         </div>
         <div class="info-box">
@@ -370,7 +387,7 @@
         
         <h3>Protection Rules</h3>
         <div class="grid grid-3">
-          <div><label>Consecutive CSH2 Before Protection</label><input type="number" id="ssConsecutiveLimit" value="3"></div>
+          <div><label>Cash Draws Before Protection</label><input type="number" id="ssConsecutiveLimit" value="3"></div>
           <div><label>Protection Multiplier</label><input type="number" id="ssProtectionMult" value="0.8" step="0.05"></div>
           <div style="display:flex;align-items:center;padding-top:20px;">
             <label style="display:flex;align-items:center;cursor:pointer;margin:0;">
