@@ -776,10 +776,35 @@ function showStressTab(tab) {
   event.target.classList.add('active');
   document.getElementById('stress-' + tab).classList.remove('hidden');
   if (tab === 'stresssettings') loadStressSettings();
-  // Check inputs when switching tabs
-  if (tab === 'montecarlo') checkStressInputs('mc');
-  if (tab === 'historical') checkStressInputs('hist');
-  if (tab === 'scenarios') checkStressInputs('scen');
+  // Pre-fill and check inputs when switching to test tabs
+  if (tab === 'montecarlo') { prefillStressInputs('mc'); checkStressInputs('mc'); }
+  if (tab === 'historical') { prefillStressInputs('hist'); checkStressInputs('hist'); }
+  if (tab === 'scenarios') { prefillStressInputs('scen'); checkStressInputs('scen'); }
+}
+
+// Pre-fill stress test inputs from settings (only if inputs are at default values)
+var stressInputsPrefilled = { mc: false, hist: false, scen: false };
+function prefillStressInputs(prefix) {
+  // Only pre-fill once per session, or if values are still at defaults
+  if (stressInputsPrefilled[prefix]) return;
+
+  var s = getStressDB().settings;
+  var equityEl = document.getElementById(prefix + 'Equity');
+  var bondEl = document.getElementById(prefix + 'Bond');
+  var cashEl = document.getElementById(prefix + 'Cash');
+  var yearsEl = document.getElementById(prefix + 'Years');
+
+  // Check if at default values (250000/200000/50000/35)
+  var atDefaults = +equityEl.value === 250000 && +bondEl.value === 200000 && +cashEl.value === 50000;
+
+  if (atDefaults) {
+    equityEl.value = s.equityMin;
+    bondEl.value = s.bondMin;
+    cashEl.value = s.cashTarget;
+    if (yearsEl) yearsEl.value = s.duration;
+  }
+
+  stressInputsPrefilled[prefix] = true;
 }
 
 // Check if stress test inputs differ from settings minimums
@@ -3855,6 +3880,29 @@ function skipStressWizard() {
 
 // ========== DECISION TOOL WIZARD ==========
 function showDecisionWizard() {
+  // Pre-fill from stress wizard values if available
+  var wizBaseSalary = document.getElementById('wizBaseSalary');
+  var wizEquityMin = document.getElementById('wizEquityMin');
+  var wizBondMin = document.getElementById('wizBondMin');
+  var wizCashTarget = document.getElementById('wizCashTarget');
+  var wizDuration = document.getElementById('wizDuration');
+
+  if (wizBaseSalary && wizBaseSalary.value) {
+    document.getElementById('wizDBaseSalary').value = wizBaseSalary.value;
+  }
+  if (wizEquityMin && wizEquityMin.value) {
+    document.getElementById('wizDEquityMin').value = wizEquityMin.value;
+  }
+  if (wizBondMin && wizBondMin.value) {
+    document.getElementById('wizDBondMin').value = wizBondMin.value;
+  }
+  if (wizCashTarget && wizCashTarget.value) {
+    document.getElementById('wizDCashTarget').value = wizCashTarget.value;
+  }
+  if (wizDuration && wizDuration.value) {
+    document.getElementById('wizDDuration').value = wizDuration.value;
+  }
+
   document.getElementById('decisionWizardOverlay').classList.remove('hidden');
   showDecisionWizardStep(1);
 }
@@ -4239,6 +4287,9 @@ window.addEventListener('DOMContentLoaded', function() {
     </div>
   </div>
 </div>
+
+<!-- Version display -->
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.25);pointer-events:none;z-index:1;">V60</div>
 
 </body>
 </html>
