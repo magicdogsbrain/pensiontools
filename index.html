@@ -1169,40 +1169,82 @@ function renderDecisionOutput(d) {
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">';
 
   // LEFT: Tax-Efficient (Recommended)
-  h += '<div style="background:linear-gradient(135deg,rgba(46,160,67,0.15) 0%,rgba(46,160,67,0.05) 100%);border:2px solid var(--success);border-radius:12px;padding:16px;">';
+  var leftBorder = d.inProtection ? 'var(--danger)' : 'var(--success)';
+  var leftBg = d.inProtection ? 'rgba(248,81,73,0.15)' : 'rgba(46,160,67,0.15)';
+  var leftBgEnd = d.inProtection ? 'rgba(248,81,73,0.05)' : 'rgba(46,160,67,0.05)';
+  h += '<div style="background:linear-gradient(135deg,' + leftBg + ' 0%,' + leftBgEnd + ' 100%);border:2px solid ' + leftBorder + ';border-radius:12px;padding:16px;">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-  h += '<span style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--success);">✓ Tax-Efficient</span>';
-  h += '<span class="badge" style="background:var(--success);color:white;font-size:10px;">RECOMMENDED</span></div>';
+  if (d.inProtection) {
+    h += '<span style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--danger);">🛡️ PROTECTION MODE</span>';
+    h += '<span class="badge" style="background:var(--danger);color:white;font-size:10px;">REDUCED DRAW</span></div>';
+  } else {
+    h += '<span style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--success);">✓ Tax-Efficient</span>';
+    h += '<span class="badge" style="background:var(--success);color:white;font-size:10px;">RECOMMENDED</span></div>';
+  }
   h += '<div class="tax-breakdown" style="background:transparent;padding:0;">';
-  h += '<div class="tax-row" style="color:var(--primary);"><span>SIPP Draw</span><span>£' + efficientSipp.toFixed(2) + '</span></div>';
+  if (d.inProtection) {
+    h += '<div class="tax-row" style="color:var(--danger);"><span>SIPP Draw (reduced)</span><span>£' + efficientSipp.toFixed(2) + '</span></div>';
+  } else {
+    h += '<div class="tax-row" style="color:var(--primary);"><span>SIPP Draw</span><span>£' + efficientSipp.toFixed(2) + '</span></div>';
+  }
   h += '<div class="tax-row"><span>Other Pension</span><span>£' + d.other.toFixed(2) + '</span></div>';
   if (d.state > 0) h += '<div class="tax-row" style="color:var(--success);"><span>State Pension</span><span>£' + d.state.toFixed(2) + '</span></div>';
   h += '<div class="tax-row" style="color:var(--accent);"><span>ISA Top-up</span><span>£' + efficientIsa.toFixed(2) + '</span></div>';
   h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (efficientTax/12).toFixed(2) + '</span></div>';
-  h += '<div class="tax-row total" style="color:var(--success);"><span>Net Income</span><span>£' + efficientNet.toFixed(2) + '</span></div>';
+  h += '<div class="tax-row total" style="color:' + (d.inProtection ? 'var(--warning)' : 'var(--success)') + ';"><span>Net Income</span><span>£' + efficientNet.toFixed(2) + '</span></div>';
   h += '</div>';
-  h += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">SIPP stays below BRL (£' + BRL.toLocaleString() + ')<br>Avoids 40% tax band</div>';
-  h += '</div>';
-
-  // RIGHT: Tax-Inefficient (Alternative)
-  h += '<div style="background:linear-gradient(135deg,rgba(248,81,73,0.1) 0%,rgba(248,81,73,0.05) 100%);border:1px solid rgba(248,81,73,0.3);border-radius:12px;padding:16px;">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-  h += '<span style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--danger);">✗ All from SIPP</span>';
-  h += '<span style="font-size:10px;color:var(--text-muted);">ALTERNATIVE</span></div>';
-  h += '<div class="tax-breakdown" style="background:transparent;padding:0;">';
-  h += '<div class="tax-row" style="color:var(--primary);"><span>SIPP Draw</span><span>£' + inefficientSipp.toFixed(2) + '</span></div>';
-  h += '<div class="tax-row"><span>Other Pension</span><span>£' + d.other.toFixed(2) + '</span></div>';
-  if (d.state > 0) h += '<div class="tax-row" style="color:var(--success);"><span>State Pension</span><span>£' + d.state.toFixed(2) + '</span></div>';
-  h += '<div class="tax-row" style="color:var(--text-muted);"><span>ISA Top-up</span><span>£0.00</span></div>';
-  h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (inefficientTax/12).toFixed(2) + '</span></div>';
-  h += '<div class="tax-row total"><span>Net Income</span><span>£' + inefficientNet.toFixed(2) + '</span></div>';
-  h += '</div>';
-  if (taxSaving > 0) {
-    h += '<div style="margin-top:12px;font-size:11px;color:var(--danger);">Pays £' + taxSaving.toFixed(2) + '/mo MORE tax<br>£' + (taxSaving * 12).toFixed(0) + '/year wasted</div>';
+  if (d.inProtection) {
+    h += '<div style="margin-top:12px;font-size:11px;color:var(--danger);">⚠️ Growth funds below glidepath<br>Drawing from Cash to protect equity</div>';
   } else {
-    h += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">Same tax (below BRL anyway)</div>';
+    h += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">SIPP stays below BRL (£' + BRL.toLocaleString() + ')<br>Avoids 40% tax band</div>';
   }
   h += '</div>';
+
+  // RIGHT: Standard Draw (what you'd take without protection) or Tax-Inefficient
+  if (d.inProtection) {
+    // When in protection, show what the STANDARD draw would be (for comparison)
+    var stdSipp = d.stdSipp || (efficientSipp / (1 - 0.2)); // Estimate if not provided
+    var stdGrossTaxable = (stdSipp + d.other + d.state) * 12;
+    var stdTax = stdGrossTaxable <= PA ? 0 : (Math.min(stdGrossTaxable, BRL) - PA) * 0.2;
+    if (stdGrossTaxable > BRL) stdTax += (Math.min(stdGrossTaxable, HRL) - BRL) * 0.4;
+    var stdNet = (stdSipp + d.other + d.state) - stdTax / 12 + efficientIsa;
+    var protectionSaving = stdSipp - efficientSipp;
+
+    h += '<div style="background:linear-gradient(135deg,rgba(126,184,218,0.1) 0%,rgba(126,184,218,0.05) 100%);border:1px solid rgba(126,184,218,0.3);border-radius:12px;padding:16px;">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+    h += '<span style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--info);">📊 Standard Draw</span>';
+    h += '<span style="font-size:10px;color:var(--text-muted);">IF NOT IN PROTECTION</span></div>';
+    h += '<div class="tax-breakdown" style="background:transparent;padding:0;">';
+    h += '<div class="tax-row" style="color:var(--primary);"><span>SIPP Draw</span><span>£' + stdSipp.toFixed(2) + '</span></div>';
+    h += '<div class="tax-row"><span>Other Pension</span><span>£' + d.other.toFixed(2) + '</span></div>';
+    if (d.state > 0) h += '<div class="tax-row" style="color:var(--success);"><span>State Pension</span><span>£' + d.state.toFixed(2) + '</span></div>';
+    h += '<div class="tax-row" style="color:var(--accent);"><span>ISA Top-up</span><span>£' + efficientIsa.toFixed(2) + '</span></div>';
+    h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (stdTax/12).toFixed(2) + '</span></div>';
+    h += '<div class="tax-row total"><span>Net Income</span><span>£' + stdNet.toFixed(2) + '</span></div>';
+    h += '</div>';
+    h += '<div style="margin-top:12px;font-size:11px;color:var(--info);">Protection reduces SIPP by £' + protectionSaving.toFixed(0) + '/mo<br>to preserve growth funds</div>';
+    h += '</div>';
+  } else {
+    // Normal mode: show tax-inefficient alternative
+    h += '<div style="background:linear-gradient(135deg,rgba(248,81,73,0.1) 0%,rgba(248,81,73,0.05) 100%);border:1px solid rgba(248,81,73,0.3);border-radius:12px;padding:16px;">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+    h += '<span style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--danger);">✗ All from SIPP</span>';
+    h += '<span style="font-size:10px;color:var(--text-muted);">ALTERNATIVE</span></div>';
+    h += '<div class="tax-breakdown" style="background:transparent;padding:0;">';
+    h += '<div class="tax-row" style="color:var(--primary);"><span>SIPP Draw</span><span>£' + inefficientSipp.toFixed(2) + '</span></div>';
+    h += '<div class="tax-row"><span>Other Pension</span><span>£' + d.other.toFixed(2) + '</span></div>';
+    if (d.state > 0) h += '<div class="tax-row" style="color:var(--success);"><span>State Pension</span><span>£' + d.state.toFixed(2) + '</span></div>';
+    h += '<div class="tax-row" style="color:var(--text-muted);"><span>ISA Top-up</span><span>£0.00</span></div>';
+    h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (inefficientTax/12).toFixed(2) + '</span></div>';
+    h += '<div class="tax-row total"><span>Net Income</span><span>£' + inefficientNet.toFixed(2) + '</span></div>';
+    h += '</div>';
+    if (taxSaving > 0) {
+      h += '<div style="margin-top:12px;font-size:11px;color:var(--danger);">Pays £' + taxSaving.toFixed(2) + '/mo MORE tax<br>£' + (taxSaving * 12).toFixed(0) + '/year wasted</div>';
+    } else {
+      h += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">Same tax (below BRL anyway)</div>';
+    }
+    h += '</div>';
+  }
 
   h += '</div>'; // End grid
 
