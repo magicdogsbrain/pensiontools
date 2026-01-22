@@ -25,6 +25,9 @@
       --danger: #f85149;
       --info: #7eb8da;
       --border: rgba(255,255,255,0.1);
+      --pension: #e8927c;
+      --isa: #7eb8da;
+      --gia: #a0d995;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -186,6 +189,46 @@
     .stat.warning .stat-value { color: var(--warning); }
     .stat.danger .stat-value { color: var(--danger); }
 
+    /* Account type badges */
+    .account-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .account-badge.pension { background: rgba(232,146,124,0.2); color: var(--pension); }
+    .account-badge.isa { background: rgba(126,184,218,0.2); color: var(--isa); }
+    .account-badge.gia { background: rgba(160,217,149,0.2); color: var(--gia); }
+
+    /* Account input sections */
+    .account-section {
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .account-section.pension { background: rgba(232,146,124,0.08); border: 1px solid rgba(232,146,124,0.3); }
+    .account-section.isa { background: rgba(126,184,218,0.08); border: 1px solid rgba(126,184,218,0.3); }
+    .account-section.gia { background: rgba(160,217,149,0.08); border: 1px solid rgba(160,217,149,0.3); }
+    .account-section h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .account-section.pension h4 { color: var(--pension); }
+    .account-section.isa h4 { color: var(--isa); }
+    .account-section.gia h4 { color: var(--gia); }
+    .account-section .tax-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
     /* Recommendations */
     .recommendation {
       background: rgba(126,184,218,0.1);
@@ -196,6 +239,33 @@
     }
     .recommendation h4 { color: var(--info); margin-bottom: 8px; font-size: 14px; }
     .recommendation p { color: var(--text-muted); font-size: 14px; margin: 0; }
+
+    /* Tax breakdown */
+    .tax-breakdown {
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .tax-breakdown h4 {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tax-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tax-row:last-child { border-bottom: none; }
+    .tax-row .label { display: flex; align-items: center; gap: 10px; }
+    .tax-row .amount { font-weight: 600; }
+    .tax-row.total { font-size: 18px; padding-top: 16px; }
+    .tax-row.total .label { color: var(--text); }
 
     /* Chart container */
     .chart-container {
@@ -298,25 +368,6 @@
     /* Hidden utility */
     .hidden { display: none !important; }
 
-    /* Slider styling */
-    input[type="range"] {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 8px;
-      border-radius: 4px;
-      background: var(--card-alt);
-      outline: none;
-      margin: 12px 0;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--primary);
-      cursor: pointer;
-    }
-
     /* Footer */
     .footer {
       text-align: center;
@@ -347,7 +398,7 @@
 <div class="app">
   <header class="header">
     <h1>Can I Retire?</h1>
-    <p>Find out if your pension savings will last</p>
+    <p>Find out if your savings will last through retirement</p>
   </header>
 
   <!-- Navigation -->
@@ -360,36 +411,66 @@
   <!-- TAB 1: Check My Plan -->
   <div id="tab-check" class="tab-content active">
     <div class="card">
-      <h2>Tell me about your situation</h2>
+      <h2>Your Savings</h2>
+      <p style="color: var(--text-muted); margin-bottom: 20px;">Enter how much you have in each type of account. Different accounts are taxed differently, so this matters for planning.</p>
 
-      <div class="field">
-        <label>How much have you saved for retirement?</label>
+      <div class="account-section pension">
+        <h4>
+          <span class="account-badge pension">Pension</span>
+          Pension / SIPP
+        </h4>
+        <div class="tax-note">25% tax-free, then taxed as income when you withdraw</div>
         <div class="input-with-prefix">
           <span class="input-prefix">£</span>
-          <input type="number" id="totalSavings" placeholder="500000" value="500000">
+          <input type="number" id="pensionAmount" placeholder="300000" value="300000">
         </div>
-        <div class="hint">The total in your pension pot (SIPP, workplace pension, etc.)</div>
       </div>
 
+      <div class="account-section isa">
+        <h4>
+          <span class="account-badge isa">ISA</span>
+          ISA (Stocks & Shares or Cash)
+        </h4>
+        <div class="tax-note">Completely tax-free withdrawals</div>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="isaAmount" placeholder="100000" value="100000">
+        </div>
+      </div>
+
+      <div class="account-section gia">
+        <h4>
+          <span class="account-badge gia">GIA</span>
+          General Investment Account
+        </h4>
+        <div class="tax-note">Subject to Capital Gains Tax on profits (£3,000 annual allowance)</div>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="giaAmount" placeholder="100000" value="100000">
+        </div>
+      </div>
+
+      <h3>About You</h3>
       <div class="grid-2">
         <div class="field">
           <label>How old are you now?</label>
           <input type="number" id="currentAge" placeholder="55" value="55">
         </div>
         <div class="field">
-          <label>When do you want to stop working?</label>
+          <label>Plan until what age?</label>
           <input type="number" id="retireAge" placeholder="90" value="90">
-          <div class="hint">Plan until age (e.g., 90)</div>
+          <div class="hint">How long your money needs to last</div>
         </div>
       </div>
 
+      <h3>Income Needs</h3>
       <div class="field">
-        <label>How much do you want per month?</label>
+        <label>How much do you want per month (after tax)?</label>
         <div class="input-with-prefix">
           <span class="input-prefix">£</span>
           <input type="number" id="monthlyWant" placeholder="2500" value="2500">
         </div>
-        <div class="hint">After tax, in your pocket each month</div>
+        <div class="hint">The amount you want in your pocket each month</div>
       </div>
 
       <div class="expand-section">
@@ -441,12 +522,36 @@
           <div class="stat-label">Chance of Success</div>
         </div>
         <div class="stat">
-          <div class="stat-value" id="safeMonthly">£2,400</div>
-          <div class="stat-label">Safe Monthly Income</div>
+          <div class="stat-value" id="totalSavings">£500k</div>
+          <div class="stat-label">Total Savings</div>
         </div>
         <div class="stat">
           <div class="stat-value" id="yearsLast">35+</div>
           <div class="stat-label">Years Your Money Lasts</div>
+        </div>
+      </div>
+
+      <div class="tax-breakdown" id="taxStrategy">
+        <h4>Tax-Efficient Withdrawal Order</h4>
+        <div class="tax-row">
+          <span class="label"><span class="account-badge pension">1st</span> Pension (up to tax-free allowance)</span>
+          <span class="amount" id="taxFreePension">£12,570/yr</span>
+        </div>
+        <div class="tax-row">
+          <span class="label"><span class="account-badge isa">2nd</span> ISA (tax-free)</span>
+          <span class="amount" id="isaWithdraw">£0/yr</span>
+        </div>
+        <div class="tax-row">
+          <span class="label"><span class="account-badge gia">3rd</span> GIA (using CGT allowance)</span>
+          <span class="amount" id="giaWithdraw">£0/yr</span>
+        </div>
+        <div class="tax-row">
+          <span class="label"><span class="account-badge pension">4th</span> More Pension (taxed)</span>
+          <span class="amount" id="taxedPension">£0/yr</span>
+        </div>
+        <div class="tax-row total">
+          <span class="label">Your net income</span>
+          <span class="amount" id="netIncome">£30,000/yr</span>
         </div>
       </div>
 
@@ -482,35 +587,44 @@
   <div id="tab-monthly" class="tab-content">
     <div class="card">
       <h2>This Month's Withdrawal</h2>
-      <p style="color: var(--text-muted); margin-bottom: 24px;">Enter your current fund values and I'll tell you where to take money from.</p>
+      <p style="color: var(--text-muted); margin-bottom: 24px;">Enter your current account values and I'll tell you where to take money from for the best tax efficiency.</p>
 
       <div class="field">
         <label>Month</label>
         <input type="month" id="entryMonth">
       </div>
 
-      <h3>Your Fund Balances</h3>
-      <div class="grid-3">
-        <div class="field">
-          <label>Stocks/Shares</label>
-          <div class="input-with-prefix">
-            <span class="input-prefix">£</span>
-            <input type="number" id="entryStocks" placeholder="250000">
-          </div>
+      <h3>Current Account Balances</h3>
+
+      <div class="account-section pension">
+        <h4><span class="account-badge pension">Pension</span> Current Value</h4>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="entryPension" placeholder="300000">
         </div>
-        <div class="field">
-          <label>Bonds</label>
-          <div class="input-with-prefix">
-            <span class="input-prefix">£</span>
-            <input type="number" id="entryBonds" placeholder="200000">
-          </div>
+      </div>
+
+      <div class="account-section isa">
+        <h4><span class="account-badge isa">ISA</span> Current Value</h4>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="entryIsa" placeholder="100000">
         </div>
-        <div class="field">
-          <label>Cash</label>
-          <div class="input-with-prefix">
-            <span class="input-prefix">£</span>
-            <input type="number" id="entryCash" placeholder="50000">
-          </div>
+      </div>
+
+      <div class="account-section gia">
+        <h4><span class="account-badge gia">GIA</span> Current Value</h4>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="entryGia" placeholder="100000">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>How much do you need this month?</label>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="entryNeed" placeholder="2500" value="2500">
         </div>
       </div>
 
@@ -546,62 +660,43 @@
   <!-- TAB 3: Settings -->
   <div id="tab-settings" class="tab-content">
     <div class="card">
-      <h2>Your Settings</h2>
-      <p style="color: var(--text-muted); margin-bottom: 24px;">These settings are used across all calculations.</p>
+      <h2>Tax Assumptions</h2>
+      <p style="color: var(--text-muted); margin-bottom: 20px;">These settings affect how tax is calculated in the simulations.</p>
 
-      <h3>Income Target</h3>
       <div class="field">
-        <label>Target yearly income (before tax)</label>
+        <label>Personal Allowance (tax-free income)</label>
         <div class="input-with-prefix">
           <span class="input-prefix">£</span>
-          <input type="number" id="settingsTargetIncome" value="30000">
+          <input type="number" id="settingsPA" value="12570">
         </div>
-        <div class="hint">The total you want each year from all sources combined</div>
+        <div class="hint">Currently £12,570 for 2024/25</div>
       </div>
 
-      <h3>Fund Targets</h3>
-      <div class="info-box">
-        <strong>How this works:</strong> Set target amounts for each type of investment. The tool will try to keep at least this much in each fund, drawing from whichever is "over target" first.
-      </div>
-      <div class="grid-3">
-        <div class="field">
-          <label>Stocks target</label>
-          <div class="input-with-prefix">
-            <span class="input-prefix">£</span>
-            <input type="number" id="settingsStocksMin" value="250000">
-          </div>
-        </div>
-        <div class="field">
-          <label>Bonds target</label>
-          <div class="input-with-prefix">
-            <span class="input-prefix">£</span>
-            <input type="number" id="settingsBondsMin" value="200000">
-          </div>
-        </div>
-        <div class="field">
-          <label>Cash buffer</label>
-          <div class="input-with-prefix">
-            <span class="input-prefix">£</span>
-            <input type="number" id="settingsCashTarget" value="50000">
-          </div>
-        </div>
-      </div>
-
-      <h3>Planning Horizon</h3>
       <div class="field">
-        <label>Plan for how many years?</label>
-        <input type="number" id="settingsDuration" value="35">
-        <div class="hint">How long your money needs to last from retirement</div>
+        <label>Basic Rate Limit</label>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="settingsBRL" value="50270">
+        </div>
+        <div class="hint">Income above this is taxed at 40%</div>
       </div>
 
-      <h3>Tax Assumptions</h3>
+      <div class="field">
+        <label>Capital Gains Tax Allowance</label>
+        <div class="input-with-prefix">
+          <span class="input-prefix">£</span>
+          <input type="number" id="settingsCGT" value="3000">
+        </div>
+        <div class="hint">Annual tax-free gains for GIA (currently £3,000)</div>
+      </div>
+
       <div class="field">
         <label>Will tax thresholds rise with inflation?</label>
         <select id="settingsTaxMode">
           <option value="inflates">Yes - thresholds rise with inflation (optimistic)</option>
           <option value="frozen">No - thresholds stay frozen (pessimistic)</option>
         </select>
-        <div class="hint">Frozen thresholds mean you pay more tax over time</div>
+        <div class="hint">Frozen thresholds mean you pay more tax over time due to "fiscal drag"</div>
       </div>
 
       <div style="margin-top: 28px;">
@@ -620,7 +715,7 @@
   </div>
 
   <footer class="footer">
-    <p>Pension Planner v2.0 | <a href="#" onclick="showTab('settings')">Settings</a></p>
+    <p>Pension Planner v2.1 | <a href="#" onclick="showTab('settings')">Settings</a></p>
     <p style="margin-top: 8px;">This is not financial advice. Always consult a qualified advisor.</p>
   </footer>
 </div>
@@ -654,6 +749,10 @@ function formatMoney(n) {
   return '£' + Math.round(n);
 }
 
+function formatMoneyFull(n) {
+  return '£' + Math.round(n).toLocaleString();
+}
+
 // ============ TAB NAVIGATION ============
 function showTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -674,14 +773,10 @@ function getSettings() {
     if (data) return data;
   } catch(e) {}
   return {
-    targetIncome: 30000,
-    stocksMin: 250000,
-    bondsMin: 200000,
-    cashTarget: 50000,
-    duration: 35,
-    taxMode: 'inflates',
     pa: 12570,
-    brl: 50270
+    brl: 50270,
+    cgtAllowance: 3000,
+    taxMode: 'frozen'
   };
 }
 
@@ -697,6 +792,107 @@ function getHistory() {
 
 function saveHistory(history) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
+// ============ TAX CALCULATIONS ============
+function calculateTax(grossIncome, settings, cumInf) {
+  var pa = settings.taxMode === 'frozen' ? settings.pa : settings.pa * cumInf;
+  var brl = settings.taxMode === 'frozen' ? settings.brl : settings.brl * cumInf;
+
+  var taxable = Math.max(0, grossIncome - pa);
+  var basicBand = Math.max(0, brl - pa);
+
+  var basicTax = Math.min(taxable, basicBand) * 0.20;
+  var higherTax = Math.max(0, taxable - basicBand) * 0.40;
+
+  return basicTax + higherTax;
+}
+
+function calculateOptimalWithdrawal(needed, pension, isa, gia, settings, cumInf) {
+  // Calculate how much gross pension income to get 'needed' net
+  // Strategy: Use pension up to PA, then ISA, then GIA CGT allowance, then more pension
+
+  var pa = settings.taxMode === 'frozen' ? settings.pa : settings.pa * cumInf;
+  var cgtAllowance = settings.taxMode === 'frozen' ? settings.cgtAllowance : settings.cgtAllowance * cumInf;
+
+  var result = {
+    pensionTaxFree: 0,
+    pensionTaxed: 0,
+    isaWithdraw: 0,
+    giaWithdraw: 0,
+    totalGross: 0,
+    totalNet: 0,
+    tax: 0
+  };
+
+  var remaining = needed;
+
+  // 1. Pension up to Personal Allowance (tax-free income)
+  var pensionTaxFree = Math.min(pa, pension, remaining);
+  result.pensionTaxFree = pensionTaxFree;
+  remaining -= pensionTaxFree;
+
+  if (remaining <= 0) {
+    result.totalGross = result.pensionTaxFree;
+    result.totalNet = result.pensionTaxFree;
+    return result;
+  }
+
+  // 2. ISA withdrawals (completely tax-free)
+  var isaWithdraw = Math.min(isa, remaining);
+  result.isaWithdraw = isaWithdraw;
+  remaining -= isaWithdraw;
+
+  if (remaining <= 0) {
+    result.totalGross = result.pensionTaxFree + result.isaWithdraw;
+    result.totalNet = result.totalGross;
+    return result;
+  }
+
+  // 3. GIA using CGT allowance (assuming ~50% of withdrawal is gain)
+  // Can withdraw ~2x the CGT allowance before paying tax
+  var giaMaxTaxFree = cgtAllowance * 2; // Assuming 50% gain
+  var giaWithdraw = Math.min(gia, giaMaxTaxFree, remaining);
+  result.giaWithdraw = giaWithdraw;
+  remaining -= giaWithdraw;
+
+  if (remaining <= 0) {
+    result.totalGross = result.pensionTaxFree + result.isaWithdraw + result.giaWithdraw;
+    result.totalNet = result.totalGross;
+    return result;
+  }
+
+  // 4. More pension (will be taxed at 20% basic rate)
+  // Need to gross up: if we need X net after 20% tax, we need X / 0.8 gross
+  var pensionTaxedGross = remaining / 0.8;
+  var availablePension = pension - result.pensionTaxFree;
+
+  if (pensionTaxedGross <= availablePension) {
+    result.pensionTaxed = pensionTaxedGross;
+    result.tax = pensionTaxedGross * 0.2;
+  } else {
+    // Use all available pension
+    result.pensionTaxed = availablePension;
+    result.tax = availablePension * 0.2;
+    remaining = remaining - (availablePension * 0.8);
+
+    // Still need more - use remaining ISA
+    var moreIsa = Math.min(isa - result.isaWithdraw, remaining);
+    result.isaWithdraw += moreIsa;
+    remaining -= moreIsa;
+
+    // Then more GIA (will pay CGT on gains above allowance)
+    if (remaining > 0) {
+      var moreGia = Math.min(gia - result.giaWithdraw, remaining * 1.1); // Gross up for ~10% CGT
+      result.giaWithdraw += moreGia;
+      result.tax += moreGia * 0.05; // Rough CGT estimate
+    }
+  }
+
+  result.totalGross = result.pensionTaxFree + result.pensionTaxed + result.isaWithdraw + result.giaWithdraw;
+  result.totalNet = result.totalGross - result.tax;
+
+  return result;
 }
 
 // ============ SIMULATION ENGINE ============
@@ -726,100 +922,85 @@ function bondReturn(inf, eq, prevInf, rng) {
 
 function simulate(config, returns, seed) {
   var rng = seededRng(seed || 42);
-  var stocks = config.stocksStart;
-  var bonds = config.bondsStart;
-  var cash = config.cashStart;
+
+  // Each account type with its own balance
+  var pension = config.pensionStart;
+  var isa = config.isaStart;
+  var gia = config.giaStart;
+
   var cumInf = 1;
   var hist = [];
   var failed = false;
   var failMonth = null;
-  var protMonths = 0;
-  var consec = 0;
-  var prot = false;
-  var yearlyInf = [];
 
   for (var month = 0; month < config.years * 12; month++) {
     var year = Math.floor(month / 12);
 
     if (month > 0 && month % 12 === 0) {
       var inf = returns.inflation[year] || 0.025;
-      yearlyInf.push(inf);
       cumInf *= (1 + inf);
     }
-    if (year === 0 && month === 0) yearlyInf = [];
 
-    // Calculate minimums with depletion
-    var depletion = Math.max(0, 1 - year / config.duration);
-    var stocksMin = config.stocksMin * cumInf * depletion;
-    var bondsMin = config.bondsMin * cumInf * depletion;
-    var cashMax = config.cashTarget * cumInf;
-
-    // Calculate monthly draw
-    var pa = config.taxMode === 'frozen' ? config.pa : config.pa * cumInf;
-    var brl = config.taxMode === 'frozen' ? config.brl : config.brl * cumInf;
-    var target = config.targetIncome * cumInf;
-
-    var statePension = year >= config.statePensionYearsUntil ? config.statePension * cumInf : 0;
-    var other = config.otherIncome * cumInf;
-
-    var sippDraw = Math.max(0, Math.min(target, brl) - other - statePension);
-    var monthDraw = (prot ? sippDraw * 0.8 : sippDraw) / 12;
-
-    // Apply returns
+    // Apply returns (assuming 70% equity / 30% bonds allocation across all accounts)
     var inf = returns.inflation[year] || 0.025;
     var prevInf = year > 0 ? (returns.inflation[year - 1] || 0.025) : inf;
     var eq = returns.equity[year] || 0;
     var bondR = bondReturn(inf, eq, prevInf, rng);
-    var cashR = Math.max(0.005, inf + 0.012);
 
-    stocks *= (1 + Math.pow(1 + eq, 1/12) - 1);
-    bonds *= (1 + Math.pow(1 + bondR, 1/12) - 1);
-    cash *= (1 + Math.pow(1 + cashR, 1/12) - 1);
+    var blendedReturn = eq * 0.7 + bondR * 0.3;
+    var monthlyReturn = Math.pow(1 + blendedReturn, 1/12) - 1;
 
-    var totalGrowth = stocks + bonds;
-    var minGrowth = stocksMin + bondsMin;
+    pension *= (1 + monthlyReturn);
+    isa *= (1 + monthlyReturn);
+    gia *= (1 + monthlyReturn);
 
-    // Exit protection
-    if (prot && totalGrowth > minGrowth + 5000) {
-      prot = false;
-      consec = 0;
+    // Monthly withdrawal
+    var targetNetMonthly = config.targetNetMonthly * cumInf;
+
+    // State pension (if applicable)
+    var statePensionMonthly = 0;
+    if (year >= config.statePensionYearsUntil) {
+      statePensionMonthly = (config.statePension * cumInf) / 12;
     }
-    if (prot) protMonths++;
+    var otherIncomeMonthly = (config.otherIncome * cumInf) / 12;
 
-    // Withdraw
-    if (!prot && totalGrowth >= minGrowth + monthDraw) {
-      var pS = Math.max(0, stocks - stocksMin);
-      var cS = Math.max(0, bonds - bondsMin);
-      var tot = pS + cS;
-      if (tot > 0) {
-        stocks -= monthDraw * pS / tot;
-        bonds -= monthDraw * cS / tot;
-        consec = 0;
-      } else {
-        cash -= monthDraw;
-      }
-    } else {
-      if (cash >= monthDraw) {
-        cash -= monthDraw;
-        consec++;
-        if (consec >= 3) prot = true;
-      } else {
-        var rem = monthDraw - cash;
-        cash = 0;
-        if (bonds > rem) bonds -= rem;
-        else if (stocks > rem) stocks -= rem;
-        else { failed = true; failMonth = month; }
-      }
+    var neededFromSavings = Math.max(0, targetNetMonthly - statePensionMonthly - otherIncomeMonthly);
+
+    // Calculate optimal withdrawal
+    var withdrawal = calculateOptimalWithdrawal(
+      neededFromSavings,
+      pension,
+      isa,
+      gia,
+      config.settings,
+      cumInf
+    );
+
+    // Apply withdrawals
+    pension -= (withdrawal.pensionTaxFree + withdrawal.pensionTaxed);
+    isa -= withdrawal.isaWithdraw;
+    gia -= withdrawal.giaWithdraw;
+
+    // Check for failure
+    if (pension < 0 || isa < 0 || gia < 0) {
+      pension = Math.max(0, pension);
+      isa = Math.max(0, isa);
+      gia = Math.max(0, gia);
+    }
+
+    var total = pension + isa + gia;
+    if (total < neededFromSavings * 0.5 && neededFromSavings > 100) {
+      failed = true;
+      failMonth = month;
     }
 
     if (month % 12 === 0) {
       hist.push({
         year: year,
-        total: stocks + bonds + cash,
-        stocks: stocks,
-        bonds: bonds,
-        cash: cash,
-        sippDraw: sippDraw
+        total: pension + isa + gia,
+        pension: pension,
+        isa: isa,
+        gia: gia
       });
     }
     if (failed) break;
@@ -830,14 +1011,15 @@ function simulate(config, returns, seed) {
     failed: failed,
     failMonth: failMonth,
     years: failed ? failMonth / 12 : config.years,
-    final: stocks + bonds + cash,
-    protMonths: protMonths
+    final: pension + isa + gia
   };
 }
 
 // ============ MAIN CHECK FUNCTION ============
 function runCheck() {
-  var totalSavings = +document.getElementById('totalSavings').value || 500000;
+  var pensionAmount = +document.getElementById('pensionAmount').value || 0;
+  var isaAmount = +document.getElementById('isaAmount').value || 0;
+  var giaAmount = +document.getElementById('giaAmount').value || 0;
   var currentAge = +document.getElementById('currentAge').value || 55;
   var retireAge = +document.getElementById('retireAge').value || 90;
   var monthlyWant = +document.getElementById('monthlyWant').value || 2500;
@@ -848,32 +1030,18 @@ function runCheck() {
   var settings = getSettings();
   var years = retireAge - currentAge;
   var statePensionYearsUntil = Math.max(0, statePensionAge - currentAge);
-
-  // Convert monthly want to gross yearly (approximate)
-  var netMonthly = monthlyWant;
-  var grossYearly = netMonthly * 12 / 0.8 + 12570 * 0.2; // Rough approximation
-
-  // Default allocation: 50% stocks, 40% bonds, 10% cash
-  var stocksStart = totalSavings * 0.50;
-  var bondsStart = totalSavings * 0.40;
-  var cashStart = totalSavings * 0.10;
+  var totalSavings = pensionAmount + isaAmount + giaAmount;
 
   var config = {
-    stocksStart: stocksStart,
-    bondsStart: bondsStart,
-    cashStart: cashStart,
-    stocksMin: stocksStart * 0.8,
-    bondsMin: bondsStart * 0.8,
-    cashTarget: cashStart,
+    pensionStart: pensionAmount,
+    isaStart: isaAmount,
+    giaStart: giaAmount,
     years: years,
-    duration: years,
-    targetIncome: grossYearly,
+    targetNetMonthly: monthlyWant,
     statePension: statePension,
     statePensionYearsUntil: statePensionYearsUntil,
     otherIncome: otherIncome,
-    taxMode: settings.taxMode,
-    pa: settings.pa || 12570,
-    brl: settings.brl || 50270
+    settings: settings
   };
 
   // Run 1000 Monte Carlo simulations
@@ -898,9 +1066,15 @@ function runCheck() {
   var survivalYears = results.map(function(r) { return r.years; }).sort(function(a,b){return a-b;});
   var p10Years = survivalYears[Math.floor(runs * 0.1)];
 
-  // Calculate safe withdrawal
-  var safeRate = successRate >= 90 ? 1.0 : successRate >= 80 ? 0.9 : 0.8;
-  var safeMonthly = Math.round(netMonthly * safeRate / 100) * 100;
+  // Calculate first year withdrawal strategy (for display)
+  var firstYearStrategy = calculateOptimalWithdrawal(
+    monthlyWant * 12,
+    pensionAmount,
+    isaAmount,
+    giaAmount,
+    settings,
+    1
+  );
 
   // Percentile data for chart
   var pctData = [];
@@ -920,10 +1094,10 @@ function runCheck() {
   }
 
   // Display results
-  displayResults(successRate, safeMonthly, p10Years, years, pctData, config, results);
+  displayResults(successRate, totalSavings, p10Years, years, pctData, config, results, firstYearStrategy, monthlyWant);
 }
 
-function displayResults(successRate, safeMonthly, p10Years, years, pctData, config, results) {
+function displayResults(successRate, totalSavings, p10Years, years, pctData, config, results, strategy, monthlyWant) {
   document.getElementById('results').classList.add('visible');
 
   // Verdict
@@ -945,8 +1119,15 @@ function displayResults(successRate, safeMonthly, p10Years, years, pctData, conf
   document.getElementById('successRate').textContent = Math.round(successRate) + '%';
   document.getElementById('successRate').parentElement.className = 'stat ' + (successRate >= 90 ? 'success' : successRate >= 75 ? 'warning' : 'danger');
 
-  document.getElementById('safeMonthly').textContent = '£' + safeMonthly.toLocaleString();
+  document.getElementById('totalSavings').textContent = formatMoney(totalSavings);
   document.getElementById('yearsLast').textContent = Math.round(p10Years) + '+';
+
+  // Tax strategy breakdown
+  document.getElementById('taxFreePension').textContent = formatMoneyFull(strategy.pensionTaxFree) + '/yr';
+  document.getElementById('isaWithdraw').textContent = formatMoneyFull(strategy.isaWithdraw) + '/yr';
+  document.getElementById('giaWithdraw').textContent = formatMoneyFull(strategy.giaWithdraw) + '/yr';
+  document.getElementById('taxedPension').textContent = formatMoneyFull(strategy.pensionTaxed) + '/yr';
+  document.getElementById('netIncome').textContent = formatMoneyFull(monthlyWant * 12) + '/yr';
 
   // Recommendations
   var recsHtml = '';
@@ -957,8 +1138,11 @@ function displayResults(successRate, safeMonthly, p10Years, years, pctData, conf
   if (successRate < 80) {
     recsHtml += '<div class="recommendation"><h4>💡 Work a bit longer</h4><p>Each extra year of work means one less year of withdrawals and one more year of savings.</p></div>';
   }
-  if (config.cashStart < config.targetIncome * 0.5) {
-    recsHtml += '<div class="recommendation"><h4>💡 Build a cash buffer</h4><p>Having 1-2 years of expenses in cash protects you from selling stocks during a crash.</p></div>';
+  if (config.isaStart < monthlyWant * 12) {
+    recsHtml += '<div class="recommendation"><h4>💡 Build up your ISA</h4><p>ISA withdrawals are completely tax-free. Having more in ISAs gives you flexible, tax-efficient income.</p></div>';
+  }
+  if (config.pensionStart > 0 && config.isaStart === 0 && config.giaStart === 0) {
+    recsHtml += '<div class="recommendation"><h4>💡 Diversify your accounts</h4><p>Having all your savings in a pension limits flexibility. Consider ISAs for tax-free growth and access.</p></div>';
   }
   document.getElementById('recommendations').innerHTML = recsHtml;
 
@@ -968,13 +1152,12 @@ function displayResults(successRate, safeMonthly, p10Years, years, pctData, conf
   // Detailed stats
   var finals = results.filter(function(r) { return !r.failed; }).map(function(r) { return r.final; }).sort(function(a,b){return a-b;});
   var medianFinal = finals[Math.floor(finals.length * 0.5)] || 0;
-  var protRuns = results.filter(function(r) { return r.protMonths > 0; }).length;
 
   document.getElementById('detailedStats').innerHTML =
     '<div class="stat-grid">' +
     '<div class="stat"><div class="stat-value">' + results.filter(function(r){return r.failed;}).length + '</div><div class="stat-label">Simulations Failed</div></div>' +
     '<div class="stat"><div class="stat-value">' + formatMoney(medianFinal) + '</div><div class="stat-label">Median Final Balance</div></div>' +
-    '<div class="stat"><div class="stat-value">' + protRuns + '</div><div class="stat-label">Needed Protection Mode</div></div>' +
+    '<div class="stat"><div class="stat-value">' + Math.round(strategy.tax) + '</div><div class="stat-label">Est. First Year Tax</div></div>' +
     '</div>';
 }
 
@@ -1064,9 +1247,10 @@ function drawChart(pctData, years) {
 // ============ MONTHLY TRACKER ============
 function generateAdvice() {
   var month = document.getElementById('entryMonth').value;
-  var stocks = +document.getElementById('entryStocks').value || 0;
-  var bonds = +document.getElementById('entryBonds').value || 0;
-  var cash = +document.getElementById('entryCash').value || 0;
+  var pension = +document.getElementById('entryPension').value || 0;
+  var isa = +document.getElementById('entryIsa').value || 0;
+  var gia = +document.getElementById('entryGia').value || 0;
+  var need = +document.getElementById('entryNeed').value || 2500;
 
   if (!month) {
     alert('Please select a month');
@@ -1074,50 +1258,47 @@ function generateAdvice() {
   }
 
   var settings = getSettings();
-  var total = stocks + bonds + cash;
-  var monthlyDraw = settings.targetIncome / 12;
+  var total = pension + isa + gia;
 
-  // Determine where to withdraw from
-  var stocksSurplus = stocks - settings.stocksMin;
-  var bondsSurplus = bonds - settings.bondsMin;
-  var growthSurplus = stocksSurplus + bondsSurplus;
+  // Calculate optimal withdrawal for this month's need
+  var strategy = calculateOptimalWithdrawal(need, pension, isa, gia, settings, 1);
 
-  var source, amount, reason, alert_type;
+  var adviceHtml = '<div class="card">' +
+    '<h2>This Month\'s Withdrawal Plan</h2>' +
+    '<div class="tax-breakdown">' +
+    '<h4>Where to take your £' + need.toLocaleString() + ' from:</h4>';
 
-  if (growthSurplus >= monthlyDraw) {
-    source = 'growth funds';
-    var fromStocks = monthlyDraw * (stocksSurplus / growthSurplus);
-    var fromBonds = monthlyDraw * (bondsSurplus / growthSurplus);
-    amount = '£' + Math.round(fromStocks).toLocaleString() + ' from stocks, £' + Math.round(fromBonds).toLocaleString() + ' from bonds';
-    reason = 'Your growth funds are above target, so we draw from them proportionally.';
-    alert_type = 'success';
-  } else if (cash >= monthlyDraw) {
-    source = 'cash';
-    amount = '£' + Math.round(monthlyDraw).toLocaleString() + ' from cash';
-    reason = 'Growth funds are below target. Using cash buffer to protect your investments.';
-    alert_type = 'warning';
-  } else {
-    source = 'emergency';
-    amount = '£' + Math.round(monthlyDraw).toLocaleString();
-    reason = 'Warning: Cash buffer is low. Consider reducing withdrawals or rebalancing.';
-    alert_type = 'danger';
+  if (strategy.pensionTaxFree > 0) {
+    adviceHtml += '<div class="tax-row"><span class="label"><span class="account-badge pension">Pension</span> Tax-free portion</span><span class="amount">' + formatMoneyFull(strategy.pensionTaxFree) + '</span></div>';
+  }
+  if (strategy.isaWithdraw > 0) {
+    adviceHtml += '<div class="tax-row"><span class="label"><span class="account-badge isa">ISA</span> Tax-free</span><span class="amount">' + formatMoneyFull(strategy.isaWithdraw) + '</span></div>';
+  }
+  if (strategy.giaWithdraw > 0) {
+    adviceHtml += '<div class="tax-row"><span class="label"><span class="account-badge gia">GIA</span> Using CGT allowance</span><span class="amount">' + formatMoneyFull(strategy.giaWithdraw) + '</span></div>';
+  }
+  if (strategy.pensionTaxed > 0) {
+    adviceHtml += '<div class="tax-row"><span class="label"><span class="account-badge pension">Pension</span> Taxable (20%)</span><span class="amount">' + formatMoneyFull(strategy.pensionTaxed) + '</span></div>';
   }
 
-  var adviceHtml =
-    '<div class="card" style="border-color: var(--' + alert_type + ');">' +
-    '<h2>This Month\'s Recommendation</h2>' +
-    '<div class="verdict ' + alert_type + '" style="padding: 24px;">' +
-    '<h2 style="font-size: 20px;">Withdraw from ' + source + '</h2>' +
-    '<p style="font-size: 18px; color: var(--text); margin-top: 12px;">' + amount + '</p>' +
-    '</div>' +
-    '<p style="color: var(--text-muted);">' + reason + '</p>' +
-    '<div style="margin-top: 20px;">' +
-    '<button onclick="recordWithdrawal(\'' + month + '\', ' + monthlyDraw + ', \'' + source + '\', ' + total + ')">Record This Withdrawal</button>' +
-    '</div>' +
-    '</div>';
+  adviceHtml += '<div class="tax-row total"><span class="label">Estimated tax</span><span class="amount">' + formatMoneyFull(strategy.tax) + '</span></div>';
+  adviceHtml += '</div>';
+
+  adviceHtml += '<div style="margin-top: 20px;">' +
+    '<button onclick="recordWithdrawal(\'' + month + '\', ' + need + ', \'' + formatStrategy(strategy) + '\', ' + total + ')">Record This Withdrawal</button>' +
+    '</div></div>';
 
   document.getElementById('monthlyAdvice').innerHTML = adviceHtml;
   document.getElementById('monthlyAdvice').classList.add('visible');
+}
+
+function formatStrategy(strategy) {
+  var parts = [];
+  if (strategy.pensionTaxFree > 0) parts.push('Pension (TF): £' + Math.round(strategy.pensionTaxFree));
+  if (strategy.isaWithdraw > 0) parts.push('ISA: £' + Math.round(strategy.isaWithdraw));
+  if (strategy.giaWithdraw > 0) parts.push('GIA: £' + Math.round(strategy.giaWithdraw));
+  if (strategy.pensionTaxed > 0) parts.push('Pension (T): £' + Math.round(strategy.pensionTaxed));
+  return parts.join(', ');
 }
 
 function recordWithdrawal(month, amount, source, balance) {
@@ -1147,7 +1328,7 @@ function renderHistory() {
     return '<tr>' +
       '<td>' + h.month + '</td>' +
       '<td>£' + Math.round(h.amount).toLocaleString() + '</td>' +
-      '<td>' + h.source + '</td>' +
+      '<td style="font-size: 12px;">' + h.source + '</td>' +
       '<td>' + formatMoney(h.balance) + '</td>' +
       '</tr>';
   }).join('');
@@ -1156,24 +1337,18 @@ function renderHistory() {
 // ============ SETTINGS ============
 function loadSettings() {
   var s = getSettings();
-  document.getElementById('settingsTargetIncome').value = s.targetIncome;
-  document.getElementById('settingsStocksMin').value = s.stocksMin;
-  document.getElementById('settingsBondsMin').value = s.bondsMin;
-  document.getElementById('settingsCashTarget').value = s.cashTarget;
-  document.getElementById('settingsDuration').value = s.duration;
+  document.getElementById('settingsPA').value = s.pa;
+  document.getElementById('settingsBRL').value = s.brl;
+  document.getElementById('settingsCGT').value = s.cgtAllowance || 3000;
   document.getElementById('settingsTaxMode').value = s.taxMode;
 }
 
 function saveSettings() {
   var settings = {
-    targetIncome: +document.getElementById('settingsTargetIncome').value,
-    stocksMin: +document.getElementById('settingsStocksMin').value,
-    bondsMin: +document.getElementById('settingsBondsMin').value,
-    cashTarget: +document.getElementById('settingsCashTarget').value,
-    duration: +document.getElementById('settingsDuration').value,
-    taxMode: document.getElementById('settingsTaxMode').value,
-    pa: 12570,
-    brl: 50270
+    pa: +document.getElementById('settingsPA').value,
+    brl: +document.getElementById('settingsBRL').value,
+    cgtAllowance: +document.getElementById('settingsCGT').value,
+    taxMode: document.getElementById('settingsTaxMode').value
   };
   saveSettingsToStorage(settings);
   alert('Settings saved!');
@@ -1184,7 +1359,7 @@ function exportAllData() {
     settings: getSettings(),
     history: getHistory(),
     exportDate: new Date().toISOString(),
-    version: '2.0'
+    version: '2.1'
   };
 
   var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
