@@ -1162,30 +1162,7 @@ function renderDecisionOutput(d) {
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' + badge;
   h += '<span style="font-size:12px;color:var(--text-muted);">' + d.taxYear + ' (Yr ' + d.yearNum + ')</span></div>';
 
-  // Fund source info - WHERE TO WITHDRAW FROM
-  h += '<div style="background:var(--card-alt);border-radius:10px;padding:16px;margin-bottom:20px;">';
-  h += '<div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📤 Where to withdraw £' + d.sipp.toFixed(0) + ' from:</div>';
-  if (d.source === 'Growth') {
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-    h += '<div style="background:rgba(240,198,116,0.1);border:1px solid rgba(240,198,116,0.3);border-radius:8px;padding:12px;text-align:center;">';
-    h += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">EQUITY FUND</div>';
-    h += '<div style="font-size:20px;font-weight:600;color:var(--primary);">£' + d.dEquity.toFixed(0) + '</div></div>';
-    h += '<div style="background:rgba(126,184,218,0.1);border:1px solid rgba(126,184,218,0.3);border-radius:8px;padding:12px;text-align:center;">';
-    h += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">BOND FUND</div>';
-    h += '<div style="font-size:20px;font-weight:600;color:var(--info);">£' + d.dBond.toFixed(0) + '</div></div>';
-    h += '</div>';
-  } else {
-    h += '<div style="background:rgba(46,160,67,0.1);border:1px solid rgba(46,160,67,0.3);border-radius:8px;padding:12px;text-align:center;">';
-    h += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">CASH FUND</div>';
-    h += '<div style="font-size:20px;font-weight:600;color:var(--success);">£' + d.dCash.toFixed(0) + '</div>';
-    if (d.inProtection) {
-      h += '<div style="font-size:11px;color:var(--danger);margin-top:6px;">🛡️ Protection mode - preserving growth funds</div>';
-    }
-    h += '</div>';
-  }
-  h += '</div>';
-
-  // Rebalance and Cash Replenish suggestions (show prominently after withdrawal info)
+  // Rebalance and Cash Replenish suggestions (show prominently)
   if (d.rebal) {
     h += '<div class="alert alert-warning" style="margin-bottom:16px;">⚖️ <strong>Rebalance:</strong> ' + d.rebal + '</div>';
   }
@@ -1221,10 +1198,30 @@ function renderDecisionOutput(d) {
   h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (efficientTax/12).toFixed(2) + '</span></div>';
   h += '<div class="tax-row total" style="color:' + (d.inProtection ? 'var(--warning)' : 'var(--success)') + ';"><span>Net Income</span><span>£' + efficientNet.toFixed(2) + '</span></div>';
   h += '</div>';
-  if (d.inProtection) {
-    h += '<div style="margin-top:12px;font-size:11px;color:var(--danger);">⚠️ Growth funds below glidepath<br>Drawing from Cash to protect equity</div>';
+
+  // Fund withdrawal breakdown for LEFT panel
+  h += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">';
+  h += '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Withdraw from:</div>';
+  if (d.source === 'Growth') {
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    h += '<div style="background:rgba(240,198,116,0.15);border-radius:6px;padding:8px;text-align:center;">';
+    h += '<div style="font-size:9px;color:var(--text-muted);">EQUITY</div>';
+    h += '<div style="font-size:14px;font-weight:600;color:var(--primary);">£' + d.dEquity.toFixed(0) + '</div></div>';
+    h += '<div style="background:rgba(126,184,218,0.15);border-radius:6px;padding:8px;text-align:center;">';
+    h += '<div style="font-size:9px;color:var(--text-muted);">BOND</div>';
+    h += '<div style="font-size:14px;font-weight:600;color:var(--info);">£' + d.dBond.toFixed(0) + '</div></div>';
+    h += '</div>';
   } else {
-    h += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">SIPP stays below BRL (£' + BRL.toLocaleString() + ')<br>Avoids 40% tax band</div>';
+    h += '<div style="background:rgba(46,160,67,0.15);border-radius:6px;padding:8px;text-align:center;">';
+    h += '<div style="font-size:9px;color:var(--text-muted);">CASH</div>';
+    h += '<div style="font-size:14px;font-weight:600;color:var(--success);">£' + d.dCash.toFixed(0) + '</div></div>';
+  }
+  h += '</div>';
+
+  if (d.inProtection) {
+    h += '<div style="margin-top:8px;font-size:10px;color:var(--danger);">🛡️ Protecting growth funds</div>';
+  } else {
+    h += '<div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Below BRL - avoids 40% tax</div>';
   }
   h += '</div>';
 
@@ -1250,7 +1247,21 @@ function renderDecisionOutput(d) {
     h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (stdTax/12).toFixed(2) + '</span></div>';
     h += '<div class="tax-row total"><span>Net Income</span><span>£' + stdNet.toFixed(2) + '</span></div>';
     h += '</div>';
-    h += '<div style="margin-top:12px;font-size:11px;color:var(--info);">Protection reduces SIPP by £' + protectionSaving.toFixed(0) + '/mo<br>to preserve growth funds</div>';
+
+    // Fund withdrawal breakdown for RIGHT panel (protection mode - shows what WOULD happen)
+    h += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">';
+    h += '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Would withdraw from:</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    h += '<div style="background:rgba(240,198,116,0.1);border-radius:6px;padding:8px;text-align:center;">';
+    h += '<div style="font-size:9px;color:var(--text-muted);">EQUITY</div>';
+    h += '<div style="font-size:14px;font-weight:600;color:var(--primary);">£' + (stdSipp * 0.6).toFixed(0) + '</div></div>';
+    h += '<div style="background:rgba(126,184,218,0.1);border-radius:6px;padding:8px;text-align:center;">';
+    h += '<div style="font-size:9px;color:var(--text-muted);">BOND</div>';
+    h += '<div style="font-size:14px;font-weight:600;color:var(--info);">£' + (stdSipp * 0.4).toFixed(0) + '</div></div>';
+    h += '</div>';
+    h += '</div>';
+
+    h += '<div style="margin-top:8px;font-size:10px;color:var(--info);">Reduces SIPP by £' + protectionSaving.toFixed(0) + '/mo</div>';
     h += '</div>';
   } else {
     // Normal mode: show tax-inefficient alternative
@@ -1266,10 +1277,34 @@ function renderDecisionOutput(d) {
     h += '<div class="tax-row" style="color:var(--danger);"><span>Tax (monthly)</span><span>-£' + (inefficientTax/12).toFixed(2) + '</span></div>';
     h += '<div class="tax-row total"><span>Net Income</span><span>£' + inefficientNet.toFixed(2) + '</span></div>';
     h += '</div>';
-    if (taxSaving > 0) {
-      h += '<div style="margin-top:12px;font-size:11px;color:var(--danger);">Pays £' + taxSaving.toFixed(2) + '/mo MORE tax<br>£' + (taxSaving * 12).toFixed(0) + '/year wasted</div>';
+
+    // Fund withdrawal breakdown for RIGHT panel (tax-inefficient)
+    h += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">';
+    h += '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Would withdraw from:</div>';
+    if (d.source === 'Growth') {
+      // Calculate proportional withdrawal for inefficient amount
+      var pS = Math.max(0, d.equity - d.adjEquity), cS = Math.max(0, d.bond - d.adjBond), tot = pS + cS;
+      var ineffDEquity = tot > 0 ? inefficientSipp * pS / tot : inefficientSipp * 0.6;
+      var ineffDBond = tot > 0 ? inefficientSipp * cS / tot : inefficientSipp * 0.4;
+      h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+      h += '<div style="background:rgba(240,198,116,0.1);border-radius:6px;padding:8px;text-align:center;">';
+      h += '<div style="font-size:9px;color:var(--text-muted);">EQUITY</div>';
+      h += '<div style="font-size:14px;font-weight:600;color:var(--primary);">£' + ineffDEquity.toFixed(0) + '</div></div>';
+      h += '<div style="background:rgba(126,184,218,0.1);border-radius:6px;padding:8px;text-align:center;">';
+      h += '<div style="font-size:9px;color:var(--text-muted);">BOND</div>';
+      h += '<div style="font-size:14px;font-weight:600;color:var(--info);">£' + ineffDBond.toFixed(0) + '</div></div>';
+      h += '</div>';
     } else {
-      h += '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">Same tax (below BRL anyway)</div>';
+      h += '<div style="background:rgba(46,160,67,0.1);border-radius:6px;padding:8px;text-align:center;">';
+      h += '<div style="font-size:9px;color:var(--text-muted);">CASH</div>';
+      h += '<div style="font-size:14px;font-weight:600;color:var(--success);">£' + inefficientSipp.toFixed(0) + '</div></div>';
+    }
+    h += '</div>';
+
+    if (taxSaving > 0) {
+      h += '<div style="margin-top:8px;font-size:10px;color:var(--danger);">+£' + taxSaving.toFixed(0) + '/mo extra tax</div>';
+    } else {
+      h += '<div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Same tax (below BRL)</div>';
     }
     h += '</div>';
   }
