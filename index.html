@@ -1162,8 +1162,36 @@ function renderDecisionOutput(d) {
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' + badge;
   h += '<span style="font-size:12px;color:var(--text-muted);">' + d.taxYear + ' (Yr ' + d.yearNum + ')</span></div>';
 
-  // Fund source info
-  h += '<div style="font-size:13px;margin-bottom:16px;"><strong>Source:</strong> ' + d.source + '<br><span style="color:var(--text-muted);font-family:monospace;">' + src + '</span></div>';
+  // Fund source info - WHERE TO WITHDRAW FROM
+  h += '<div style="background:var(--card-alt);border-radius:10px;padding:16px;margin-bottom:20px;">';
+  h += '<div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📤 Where to withdraw £' + d.sipp.toFixed(0) + ' from:</div>';
+  if (d.source === 'Growth') {
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+    h += '<div style="background:rgba(240,198,116,0.1);border:1px solid rgba(240,198,116,0.3);border-radius:8px;padding:12px;text-align:center;">';
+    h += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">EQUITY FUND</div>';
+    h += '<div style="font-size:20px;font-weight:600;color:var(--primary);">£' + d.dEquity.toFixed(0) + '</div></div>';
+    h += '<div style="background:rgba(126,184,218,0.1);border:1px solid rgba(126,184,218,0.3);border-radius:8px;padding:12px;text-align:center;">';
+    h += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">BOND FUND</div>';
+    h += '<div style="font-size:20px;font-weight:600;color:var(--info);">£' + d.dBond.toFixed(0) + '</div></div>';
+    h += '</div>';
+  } else {
+    h += '<div style="background:rgba(46,160,67,0.1);border:1px solid rgba(46,160,67,0.3);border-radius:8px;padding:12px;text-align:center;">';
+    h += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">CASH FUND</div>';
+    h += '<div style="font-size:20px;font-weight:600;color:var(--success);">£' + d.dCash.toFixed(0) + '</div>';
+    if (d.inProtection) {
+      h += '<div style="font-size:11px;color:var(--danger);margin-top:6px;">🛡️ Protection mode - preserving growth funds</div>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+
+  // Rebalance and Cash Replenish suggestions (show prominently after withdrawal info)
+  if (d.rebal) {
+    h += '<div class="alert alert-warning" style="margin-bottom:16px;">⚖️ <strong>Rebalance:</strong> ' + d.rebal + '</div>';
+  }
+  if (d.cashReplenish) {
+    h += '<div class="alert alert-info" style="margin-bottom:16px;">💰 <strong>Cash Top-up:</strong> ' + d.cashReplenish + '</div>';
+  }
 
   // ========== SIDE BY SIDE COMPARISON ==========
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">';
@@ -1263,8 +1291,6 @@ function renderDecisionOutput(d) {
   if (d.warn) h += '<div class="alert alert-danger" style="margin-top:12px;">' + d.warn + '</div>';
   if (d.isaWarn) h += '<div class="alert alert-warning" style="margin-top:12px;">💷 ' + d.isaWarn + '</div>';
   if (d.boostAmount > 50) h += '<div class="alert alert-success" style="margin-top:12px;">📈 Tax Boost: +£' + d.boostAmount.toFixed(0) + '/mo catch-up from protection shortfall</div>';
-  if (d.rebal) h += '<div class="alert alert-warning" style="margin-top:12px;">⚖️ ' + d.rebal + '</div>';
-  if (d.cashReplenish) h += '<div class="alert alert-info" style="margin-top:12px;">💰 ' + d.cashReplenish + '</div>';
 
   // Show ISA balance if provided
   if (d.isaBalance > 0) {
