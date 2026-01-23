@@ -203,6 +203,27 @@
       flex: 1;
     }
 
+    /* Number input formatting overlay */
+    .input-with-unit {
+      position: relative;
+    }
+
+    .number-format-overlay {
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* Hide spinner buttons on number inputs for cleaner look */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
     /* Buttons */
     button {
       padding: 12px 24px;
@@ -261,9 +282,10 @@
     .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
 
     @media (max-width: 768px) {
-      .grid-2, .grid-3, .grid-4 {
+      .grid-2, .grid-3, .grid-4, .grid-5 {
         grid-template-columns: 1fr;
       }
     }
@@ -567,7 +589,7 @@
       pointer-events: none;
     }
   </style>
-  <script type="module" crossorigin src="./assets/main-DF5BduSj.js"></script>
+  <script type="module" crossorigin src="./assets/main-D7wZ6cLz.js"></script>
 </head>
 <body>
   <!-- Auth Screen Container (shown first) -->
