@@ -1,6 +1,8 @@
 /**
  * Simulation Engine
  * Monte Carlo and historical simulation for pension stress testing
+ *
+ * Matches PWA logic for accurate simulation results
  */
 
 import { EQUITY_RETURNS, INFLATION, BOND_MODEL } from '../constants.js';
@@ -23,19 +25,30 @@ export function simulate(config, returns, seed = 0) {
   let bond = config.bondStart;
   let cash = config.cashStart;
 
+  // HODL (Break Glass) - emergency reserve
+  let hodl = config.hodlEnabled ? (config.hodlStart !== undefined ? config.hodlStart : config.hodlValue) : 0;
+  let hodlUsed = 0;
+  let hodlUsedMonth = null;
+
   // State tracking
   let protMonths = 0;
   let maxConsec = 0;
-  let consecProt = 0;
-  let hodlUsed = 0;
+  let curStreak = 0;
+  let consec = 0;  // Consecutive cash draws
+  let prot = false;  // Protection mode flag
   let failed = false;
   let failMonth = null;
+
+  // Tax boost tracking: shortfall within current tax year
+  let taxYearShortfall = 0;
+  let lastTaxYearStart = -1;
 
   // History for analysis
   const hist = [];
 
   // Inflation tracking
   const yearlyInf = [];
+  let cumInf = 1;
   let prevInf = 0.025;
 
   // Record initial state
@@ -45,6 +58,7 @@ export function simulate(config, returns, seed = 0) {
     equity,
     bond,
     cash,
+    hodl,
     total: equity + bond + cash,
     draw: 0,
     source: 'None',
@@ -59,29 +73,28 @@ export function simulate(config, returns, seed = 0) {
     const year = Math.floor(month / 12);
     const monthInYear = month % 12;
 
-    // Get this year's returns (constant within year)
-    const eqReturn = returns.equity[year] || 0;
-    const inf = returns.inflation[year] || 0.025;
+    // Tax year runs April (month 3 in 0-indexed) to March
+    const taxYearStart = monthInYear >= 3 ? year : year - 1;
 
-    // Track yearly inflation for CPI calculations
-    if (monthInYear === 0 && year > 0) {
-      yearlyInf.push(returns.inflation[year - 1] || 0.025);
+    // Reset shortfall at start of new tax year
+    if (taxYearStart !== lastTaxYearStart) {
+      taxYearShortfall = 0;
+      lastTaxYearStart = taxYearStart;
     }
 
-    // Apply monthly returns (compounded from annual)
-    const monthlyEqReturn = Math.pow(1 + eqReturn, 1/12) - 1;
-    const monthlyBondReturn = calculateBondReturn(inf, eqReturn, prevInf, rng) / 12;
-    const monthlyCashReturn = Math.max(0.001, inf) / 12; // Cash tracks inflation
+    // Track yearly inflation for Other calc (matches PWA timing)
+    if (month > 0 && month % 12 === 0) {
+      const infForYear = returns.inflation[year] || 0.025;
+      yearlyInf.push(infForYear);
+      cumInf *= (1 + infForYear);
+    }
+    if (year === 0 && month === 0) {
+      // Reset yearlyInf at simulation start
+    }
 
-    equity *= (1 + monthlyEqReturn);
-    bond *= (1 + monthlyBondReturn);
-    cash *= (1 + monthlyCashReturn);
-
-    prevInf = inf;
-
-    // Calculate cumulative inflation for glidepath
-    const cumInf = yearlyInf.reduce((acc, i) => acc * (1 + i), 1) *
-                   (1 + inf * (monthInYear / 12));
+    // Get this year's returns
+    const eqReturn = returns.equity[year] || 0;
+    const inf = returns.inflation[year] || 0.025;
 
     // Calculate glidepath minimums
     const eqMin = calculateGlidepath(config.equityMin, year, config.duration, cumInf, true);
@@ -90,84 +103,140 @@ export function simulate(config, returns, seed = 0) {
 
     // Calculate required draw
     const draw = calculateMonthlyDraw(config, year, cumInf, yearlyInf);
+    const standardMonthDraw = draw;
+    let effectiveDraw = prot ? draw * config.protectionMult : draw;
+    let monthDraw = effectiveDraw;
 
-    // Determine if in protection mode
-    const totalGrowth = equity + bond;
-    const minGrowth = eqMin + bdMin;
-    const growthHealthy = totalGrowth >= minGrowth + draw;
-
-    let inProtection = false;
-    let actualDraw = draw;
-    let source = 'Growth';
-
-    // Protection mode logic
-    if (!config.disableProtection && !growthHealthy) {
-      inProtection = true;
-      actualDraw = draw * config.protectionMult;
-      protMonths++;
-      consecProt++;
-      maxConsec = Math.max(maxConsec, consecProt);
-    } else {
-      consecProt = 0;
+    // Track protection shortfall for tax boost
+    if (prot) {
+      taxYearShortfall += (standardMonthDraw - monthDraw);
     }
 
+    // Apply monthly returns (compounded from annual)
+    const monthlyEqReturn = Math.pow(1 + eqReturn, 1/12) - 1;
+    const monthlyBondReturn = calculateBondReturn(inf, eqReturn, prevInf, rng) / 12;
+    // Cash return: matches PWA - inflation + 1.2% real, min 0.5%
+    const monthlyCashReturn = Math.pow(1 + Math.max(0.005, inf + 0.012), 1/12) - 1;
+
+    equity *= (1 + monthlyEqReturn);
+    bond *= (1 + monthlyBondReturn);
+    cash *= (1 + monthlyCashReturn);
+
+    // HODL fund return (Ruffer-style absolute return)
+    if (hodl > 0) {
+      const ricaBase = 0.069; // 6.9% mean annual return
+      const ricaVol = 0.06;   // 6% annual volatility
+      const ricaRandom = (rng() - 0.5) * 2 * ricaVol;
+
+      // Defensive boost when equities fall
+      let defensiveBoost = 0;
+      if (eqReturn < -0.10) {
+        defensiveBoost = Math.min(0.15, Math.abs(eqReturn) * 0.4);
+      } else if (eqReturn < -0.05) {
+        defensiveBoost = Math.abs(eqReturn) * 0.2;
+      }
+
+      let hodlR = ricaBase + ricaRandom + defensiveBoost;
+      hodlR = Math.max(-0.08, Math.min(0.18, hodlR));
+      hodl *= (1 + Math.pow(1 + hodlR, 1/12) - 1);
+    }
+
+    prevInf = inf;
+
+    const totalGrowth = equity + bond;
+    const minGrowth = eqMin + bdMin;
+
+    // Exit protection (with 5000 buffer)
+    if (prot && totalGrowth > minGrowth + 5000) {
+      prot = false;
+      consec = 0;
+      maxConsec = Math.max(maxConsec, curStreak);
+      curStreak = 0;
+    }
+    if (prot) {
+      protMonths++;
+      curStreak++;
+    }
+
+    // TAX BOOST: After protection ends, try to catch up on shortfall
+    let boostAmount = 0;
+    if (!prot && taxYearShortfall > 0 && totalGrowth > minGrowth + 15000) {
+      // Calculate months remaining in tax year (April = month index 3)
+      let monthsToApril = monthInYear >= 3 ? (15 - monthInYear) : (3 - monthInYear);
+      if (monthsToApril < 1) monthsToApril = 1;
+
+      // Surplus available for boost
+      const surplus = totalGrowth - minGrowth - 15000;
+
+      // Spread catch-up, capped by surplus
+      const catchUpPerMonth = Math.min(taxYearShortfall / monthsToApril, surplus / monthsToApril);
+      const maxBoost = standardMonthDraw * 0.5; // Cap boost at 50% of standard draw
+      boostAmount = Math.min(catchUpPerMonth, maxBoost);
+
+      if (boostAmount > 50) {
+        monthDraw += boostAmount;
+        taxYearShortfall -= boostAmount;
+      }
+    }
+
+    let source = 'Growth';
+
     // Execute withdrawal
-    if (!inProtection && growthHealthy) {
+    if (!prot && totalGrowth >= minGrowth + monthDraw) {
       // Draw from growth funds proportionally
       const eqSurplus = Math.max(0, equity - eqMin);
       const bdSurplus = Math.max(0, bond - bdMin);
       const totalSurplus = eqSurplus + bdSurplus;
 
-      if (totalSurplus >= actualDraw) {
-        const eqDraw = actualDraw * (eqSurplus / totalSurplus);
-        const bdDraw = actualDraw * (bdSurplus / totalSurplus);
-        equity -= eqDraw;
-        bond -= bdDraw;
+      if (totalSurplus > 0) {
+        equity -= monthDraw * eqSurplus / totalSurplus;
+        bond -= monthDraw * bdSurplus / totalSurplus;
+        consec = 0;
         source = 'Growth';
+
+        // Cash replenishment: rebuild cash from growth surplus
+        if (cash < csTarget) {
+          const excess = totalGrowth - minGrowth - monthDraw;
+          if (excess > 5000) {
+            const rep = Math.min((csTarget - cash) * 0.3, excess * 0.5);
+            equity -= rep * eqSurplus / totalSurplus;
+            bond -= rep * bdSurplus / totalSurplus;
+            cash += rep;
+          }
+        }
       } else {
-        // Fallback to cash
-        cash -= actualDraw;
+        cash -= monthDraw;
         source = 'Cash';
       }
     } else {
       // In protection or unhealthy - draw from cash
-      if (cash >= actualDraw) {
-        cash -= actualDraw;
+      if (cash >= monthDraw) {
+        cash -= monthDraw;
+        consec++;
         source = 'Cash';
-      } else if (bond >= actualDraw - cash) {
-        // Use remaining cash + bonds
-        const fromCash = cash;
-        const fromBond = actualDraw - cash;
+        // Enter protection after consecutive cash draws
+        if (!config.disableProtection && consec >= config.consecutiveLimit) {
+          prot = true;
+        }
+      } else {
+        const rem = monthDraw - cash;
         cash = 0;
-        bond -= fromBond;
-        source = 'Bond+Cash';
-      } else if (equity >= actualDraw - cash - bond) {
-        // Last resort: use equity too
-        const remaining = actualDraw - cash - bond;
-        cash = 0;
-        bond = 0;
-        equity -= remaining;
-        source = 'All';
-      } else if (config.hodlEnabled && hodlUsed < config.hodlValue) {
-        // Use HODL reserve
-        const available = config.hodlValue - hodlUsed;
-        const needed = actualDraw - cash - bond - equity;
-        const fromHodl = Math.min(available, needed);
-        hodlUsed += fromHodl;
-        cash = 0;
-        bond = 0;
-        equity = 0;
-        source = 'HODL';
-
-        if (fromHodl < needed) {
-          // Still not enough - fail
+        if (bond > rem) {
+          bond -= rem;
+          source = 'Bond';
+        } else if (equity > rem) {
+          equity -= rem;
+          source = 'Equity';
+        } else if (hodl > rem) {
+          // BREAK GLASS: Use HODL emergency reserve
+          hodl -= rem;
+          hodlUsed += rem;
+          if (hodlUsedMonth === null) hodlUsedMonth = month;
+          source = 'HODL';
+        } else {
           failed = true;
           failMonth = month;
         }
-      } else {
-        // Total failure
-        failed = true;
-        failMonth = month;
       }
     }
 
@@ -184,10 +253,12 @@ export function simulate(config, returns, seed = 0) {
         equity,
         bond,
         cash,
+        hodl,
         total: equity + bond + cash,
-        draw: actualDraw,
+        draw: monthDraw,
+        boostAmount,
         source,
-        inProtection,
+        inProtection: prot,
         equityMin: eqMin,
         bondMin: bdMin,
         cashMax: csTarget
@@ -197,6 +268,8 @@ export function simulate(config, returns, seed = 0) {
     if (failed) break;
   }
 
+  maxConsec = Math.max(maxConsec, curStreak);
+
   return {
     failed,
     years: failed ? failMonth / 12 : config.years,
@@ -205,9 +278,11 @@ export function simulate(config, returns, seed = 0) {
     finalEquity: equity,
     finalBond: bond,
     finalCash: cash,
+    finalHodl: hodl,
     protMonths,
     maxConsec,
     hodlUsed,
+    hodlUsedMonth,
     hist,
     seed
   };
@@ -215,37 +290,63 @@ export function simulate(config, returns, seed = 0) {
 
 /**
  * Calculates bond return using multi-asset model
+ * Matches PWA logic with randomized reaction quality
  */
 function calculateBondReturn(inf, eqReturn, prevInf, rng) {
-  // Use lagged inflation for regime detection
-  const laggedInf = prevInf;
+  // Base allocation (normal times)
+  let linkerWeight = 0.15;    // Index-linked gilts
+  let nomBondWeight = 0.30;   // Nominal bonds
+  let propertyWeight = 0.20;  // Property
+  let commodityWeight = 0.10; // Commodities
+  let cashWeight = 0.10;      // Cash
+  let equityWeight = 0.15;    // Partial equity exposure
 
-  // Determine regime
-  let weights;
-  if (laggedInf > 0.045) {
-    weights = BOND_MODEL.HIGH_INFLATION;
-  } else if (laggedInf < 0) {
-    weights = BOND_MODEL.DEFLATION;
-  } else {
-    weights = BOND_MODEL.NORMAL;
+  // Regime detection - use lagged inflation (models delayed recognition)
+  const laggedInf = prevInf !== undefined ? prevInf : inf;
+  const highInflation = laggedInf > 0.045;  // > 4.5%
+  const veryHighInflation = laggedInf > 0.07; // > 7%
+
+  if (highInflation) {
+    // Shift towards inflation protection - but not perfectly
+    // 30% chance they're slow to react or get it partially wrong
+    const reactionQuality = rng() > 0.30 ? 1.0 : 0.5;
+
+    if (veryHighInflation) {
+      // Aggressive shift to linkers
+      linkerWeight = 0.15 + (0.35 * reactionQuality);   // Up to 50%
+      nomBondWeight = 0.30 - (0.20 * reactionQuality);  // Down to 10%
+      equityWeight = 0.15 - (0.10 * reactionQuality);   // Down to 5%
+      commodityWeight = 0.10 + (0.05 * reactionQuality); // Up slightly
+    } else {
+      // Moderate shift
+      linkerWeight = 0.15 + (0.20 * reactionQuality);   // Up to 35%
+      nomBondWeight = 0.30 - (0.10 * reactionQuality);  // Down to 20%
+      equityWeight = 0.15 - (0.05 * reactionQuality);   // Down to 10%
+    }
   }
 
-  // Calculate individual asset returns
-  const linkerReturn = inf + 0.005 + gaussianRandom(0, BOND_MODEL.VOLATILITY.LINKER, rng);
-  const nomBondReturn = 0.04 - (inf > 0.04 ? (inf - 0.04) * 0.5 : 0) +
-                        gaussianRandom(0, BOND_MODEL.VOLATILITY.NOMINAL, rng);
-  const propertyReturn = eqReturn * 0.6 + inf + gaussianRandom(0, BOND_MODEL.VOLATILITY.PROPERTY, rng);
-  const commodityReturn = inf * 1.2 + gaussianRandom(0, BOND_MODEL.VOLATILITY.COMMODITY, rng);
-  const cashReturn = Math.max(0.001, inf) + gaussianRandom(0, BOND_MODEL.VOLATILITY.CASH, rng);
-  const equityReturn = eqReturn * 0.5; // Partial equity exposure
+  // 15% chance of mistimed reversion (shift back too early even if inflation still high)
+  if (highInflation && rng() < 0.15) {
+    linkerWeight = 0.20;
+    nomBondWeight = 0.25;
+    equityWeight = 0.12;
+  }
 
-  // Weighted average
-  return weights.LINKER * linkerReturn +
-         weights.NOMINAL * nomBondReturn +
-         weights.PROPERTY * propertyReturn +
-         weights.COMMODITY * commodityReturn +
-         weights.CASH * cashReturn +
-         weights.EQUITY * equityReturn;
+  // Asset returns (matches PWA formulas)
+  const linkerReturn = inf + 0.005 + gaussianRandom(0, 0.03, rng);  // Inflation + small real + low vol
+  const nomBondReturn = 0.04 - (inf > 0.04 ? (inf - 0.04) * 0.5 : 0) + gaussianRandom(0, 0.05, rng);
+  const propertyReturn = 0.03 + inf * 0.3 + gaussianRandom(0, 0.08, rng);  // Partial inflation hedge
+  const commodityReturn = inf * 0.8 + gaussianRandom(0, 0.15, rng);  // Good inflation hedge, volatile
+  const cashReturn = Math.max(0.005, inf + 0.005);
+  const equityReturn = eqReturn * 0.5 + gaussianRandom(0, 0.02, rng);  // Dampened equity exposure
+
+  // Weighted return
+  return linkerWeight * linkerReturn +
+         nomBondWeight * nomBondReturn +
+         propertyWeight * propertyReturn +
+         commodityWeight * commodityReturn +
+         cashWeight * cashReturn +
+         equityWeight * equityReturn;
 }
 
 /**
@@ -371,7 +472,10 @@ export function analyzeResults(results) {
 
   const survivalYears = results.map(r => r.years).sort((a, b) => a - b);
   const finals = successful.map(r => r.final).sort((a, b) => a - b);
-  const protMonths = results.map(r => r.protMonths);
+  const protMonths = results.map(r => r.protMonths).sort((a, b) => a - b);
+
+  // Helper for percentile calculation
+  const percentile = (arr, p) => arr[Math.floor(arr.length * p)] || 0;
 
   return {
     total: results.length,
@@ -379,29 +483,87 @@ export function analyzeResults(results) {
     failCount: failed.length,
     successRate: calculateSuccessRate(results),
 
-    // Survival statistics
-    minYears: survivalYears[0],
-    p10Years: survivalYears[Math.floor(results.length * 0.1)],
-    medianYears: survivalYears[Math.floor(results.length * 0.5)],
+    // 7-point survival percentiles
+    survival: {
+      p5: percentile(survivalYears, 0.05),
+      p10: percentile(survivalYears, 0.10),
+      p25: percentile(survivalYears, 0.25),
+      p50: percentile(survivalYears, 0.50),
+      p75: percentile(survivalYears, 0.75),
+      p90: percentile(survivalYears, 0.90),
+      p95: percentile(survivalYears, 0.95),
+      min: survivalYears[0],
+      max: survivalYears[survivalYears.length - 1]
+    },
 
-    // Final value statistics (successful runs only)
-    medianFinal: finals[Math.floor(finals.length * 0.5)] || 0,
-    p10Final: finals[Math.floor(finals.length * 0.1)] || 0,
-    p90Final: finals[Math.floor(finals.length * 0.9)] || 0,
+    // 7-point final value percentiles (successful runs only)
+    finalValue: {
+      p5: percentile(finals, 0.05),
+      p10: percentile(finals, 0.10),
+      p25: percentile(finals, 0.25),
+      p50: percentile(finals, 0.50),
+      p75: percentile(finals, 0.75),
+      p90: percentile(finals, 0.90),
+      p95: percentile(finals, 0.95),
+      min: finals[0] || 0,
+      max: finals[finals.length - 1] || 0,
+      avg: successful.reduce((a, r) => a + r.final, 0) / (successful.length || 1)
+    },
+
+    // Legacy format for backward compatibility
+    minYears: survivalYears[0],
+    p10Years: percentile(survivalYears, 0.10),
+    medianYears: percentile(survivalYears, 0.50),
+    medianFinal: percentile(finals, 0.50),
+    p10Final: percentile(finals, 0.10),
+    p90Final: percentile(finals, 0.90),
     avgFinal: successful.reduce((a, r) => a + r.final, 0) / (successful.length || 1),
 
-    // Protection statistics
+    // Protection statistics with percentiles
+    protection: {
+      runsWithProtection: results.filter(r => r.protMonths > 0).length,
+      pctWithProtection: (results.filter(r => r.protMonths > 0).length / results.length) * 100,
+      avgMonths: protMonths.reduce((a, b) => a + b, 0) / results.length,
+      maxMonths: Math.max(...protMonths),
+      maxConsecutive: Math.max(...results.map(r => r.maxConsec)),
+      p50Months: percentile(protMonths, 0.50),
+      p90Months: percentile(protMonths, 0.90),
+      p95Months: percentile(protMonths, 0.95)
+    },
+
+    // Legacy protection format
     runsWithProtection: results.filter(r => r.protMonths > 0).length,
     avgProtMonths: protMonths.reduce((a, b) => a + b, 0) / results.length,
     maxProtMonths: Math.max(...protMonths),
     maxConsecutive: Math.max(...results.map(r => r.maxConsec)),
 
     // HODL statistics
+    hodl: {
+      runsUsingHodl: results.filter(r => r.hodlUsed > 0).length,
+      pctUsingHodl: (results.filter(r => r.hodlUsed > 0).length / results.length) * 100,
+      avgUsed: results.filter(r => r.hodlUsed > 0).length > 0
+        ? results.filter(r => r.hodlUsed > 0).reduce((a, r) => a + r.hodlUsed, 0) /
+          results.filter(r => r.hodlUsed > 0).length
+        : 0,
+      maxUsed: Math.max(...results.map(r => r.hodlUsed || 0))
+    },
+
+    // Legacy HODL format
     runsUsingHodl: results.filter(r => r.hodlUsed > 0).length,
-    avgHodlUsed: results.filter(r => r.hodlUsed > 0)
-      .reduce((a, r) => a + r.hodlUsed, 0) /
-      (results.filter(r => r.hodlUsed > 0).length || 1),
-    maxHodlUsed: Math.max(...results.map(r => r.hodlUsed || 0))
+    avgHodlUsed: results.filter(r => r.hodlUsed > 0).length > 0
+      ? results.filter(r => r.hodlUsed > 0).reduce((a, r) => a + r.hodlUsed, 0) /
+        results.filter(r => r.hodlUsed > 0).length
+      : 0,
+    maxHodlUsed: Math.max(...results.map(r => r.hodlUsed || 0)),
+
+    // Failed runs detail (for worst periods table)
+    failures: failed.map(r => ({
+      seed: r.seed,
+      startYear: r.startYear,
+      years: r.years,
+      failMonth: r.failMonth,
+      protMonths: r.protMonths
+    }))
   };
 }
 

@@ -221,6 +221,22 @@
       transform: translateY(-1px);
     }
 
+    button.secondary {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+    }
+
+    button.secondary:hover {
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -279,6 +295,60 @@
     .stat-box.warning .stat-value { color: var(--warning); }
     .stat-box.danger { border-color: var(--danger); }
     .stat-box.danger .stat-value { color: var(--danger); }
+
+    .stat-box.mini {
+      padding: 8px;
+    }
+    .stat-box.mini .stat-value {
+      font-size: 14px;
+    }
+    .stat-box.mini .stat-label {
+      font-size: 10px;
+    }
+
+    /* Chart styles */
+    .chart-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .chart-container canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .chart-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 768px) {
+      .chart-row { grid-template-columns: 1fr; }
+    }
+
+    /* Data table */
+    .data-table {
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .data-table th, .data-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table th {
+      background: var(--card-alt);
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .data-table tr:hover td {
+      background: rgba(99, 102, 241, 0.05);
+    }
 
     /* Alerts */
     .alert {
@@ -699,11 +769,13 @@
               </div>
             </div>
             <div id="mcInputWarning" class="input-warning hidden"></div>
-            <div style="margin-top: 20px;">
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
               <button onclick="runMonteCarloUI()">Run Monte Carlo (1000 runs)</button>
+              <button id="optimiseBtnMC" onclick="runOptimisationUI('MC')" class="secondary">Optimise Allocation</button>
             </div>
           </div>
           <div id="mcResults"></div>
+          <div id="optimiseResultsMC"></div>
         </div>
 
         <!-- Historical Sub-tab -->
@@ -739,11 +811,13 @@
               </div>
             </div>
             <div id="histInputWarning" class="input-warning hidden"></div>
-            <div style="margin-top: 20px;">
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
               <button onclick="runHistoricalUI()">Run Historical Analysis</button>
+              <button id="optimiseBtnHist" onclick="runOptimisationUI('Hist')" class="secondary">Optimise Allocation</button>
             </div>
           </div>
           <div id="histResults"></div>
+          <div id="optimiseResultsHist"></div>
         </div>
 
         <!-- Scenarios Sub-tab -->
@@ -1042,9 +1116,23 @@
     import { isLoggedIn, logOut, getCurrentUser } from './src/firebase/index.js';
     import { hasCloudData, wipeAllUserData } from './src/firebase/FirestoreService.js';
 
+    // Import charts module
+    import {
+      drawCone,
+      drawTrajectories,
+      drawHistogram,
+      drawScenarioComparison,
+      getChartStyles
+    } from './src/ui/Charts.js';
+
+    // Store latest simulation results for chart rendering
+    let latestMCResults = null;
+    let latestHistResults = null;
+    let latestScenResults = null;
+
     // Inject component styles
     const styleEl = document.createElement('style');
-    styleEl.textContent = getDecisionPanelStyles() + getAuthScreenStyles() + getSetupWizardStyles();
+    styleEl.textContent = getDecisionPanelStyles() + getAuthScreenStyles() + getSetupWizardStyles() + getChartStyles();
     document.head.appendChild(styleEl);
 
     // Display version
@@ -1337,7 +1425,8 @@
       setTimeout(() => {
         try {
           const { results, stats } = runMonteCarloSimulation(config);
-          renderStressResults(stats, 'Monte Carlo (1000 runs)', 'mcResults');
+          latestMCResults = results;
+          renderStressResults(stats, results, 'Monte Carlo (1000 runs)', 'mcResults', config.years);
         } catch (error) {
           console.error('Simulation error:', error);
           document.getElementById('mcResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
@@ -1359,7 +1448,8 @@
       setTimeout(() => {
         try {
           const { results, stats } = runHistoricalSimulation(config);
-          renderStressResults(stats, 'Historical Analysis', 'histResults');
+          latestHistResults = results;
+          renderStressResults(stats, results, 'Historical Analysis', 'histResults', config.years);
         } catch (error) {
           console.error('Simulation error:', error);
           document.getElementById('histResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
@@ -1389,13 +1479,327 @@
       }, 50);
     };
 
-    // Render stress test results
-    function renderStressResults(stats, title, containerId) {
+    // Optimisation tracking
+    let optimiseRunning = false;
+
+    // Run allocation optimisation
+    window.runOptimisationUI = function(testType) {
+      if (optimiseRunning) return;
+      optimiseRunning = true;
+
+      const btn = document.getElementById('optimiseBtn' + testType);
+      const resultsDiv = document.getElementById('optimiseResults' + testType);
+      if (btn) btn.disabled = true;
+      if (btn) btn.textContent = 'Optimising...';
+
+      // Get current fund values based on test type
+      let equityEl, bondEl, cashEl, yearsEl;
+      if (testType === 'MC') {
+        equityEl = document.getElementById('mcEquity');
+        bondEl = document.getElementById('mcBond');
+        cashEl = document.getElementById('mcCash');
+        yearsEl = document.getElementById('mcYears');
+      } else {
+        equityEl = document.getElementById('histEquity');
+        bondEl = document.getElementById('histBond');
+        cashEl = document.getElementById('histCash');
+        yearsEl = document.getElementById('histYears');
+      }
+
+      const originalEquity = +equityEl.value;
+      const originalBond = +bondEl.value;
+      const originalCash = +cashEl.value;
+      const years = +yearsEl.value;
+      const totalFunds = originalEquity + originalBond + originalCash;
+
+      resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Testing allocations...</div>';
+
+      setTimeout(() => {
+        try {
+          // Generate allocation combinations to test (5% increments, cash 5-30%)
+          const allocations = [];
+          for (let cashPct = 5; cashPct <= 30; cashPct += 5) {
+            for (let equityPct = 20; equityPct <= 95 - cashPct; equityPct += 5) {
+              const bondPct = 100 - cashPct - equityPct;
+              if (bondPct >= 0) {
+                allocations.push({
+                  equity: Math.round(totalFunds * equityPct / 100),
+                  bond: Math.round(totalFunds * bondPct / 100),
+                  cash: Math.round(totalFunds * cashPct / 100)
+                });
+              }
+            }
+          }
+
+          // Run simulations for each allocation
+          const runSimForAlloc = (alloc) => {
+            const config = {
+              equityStart: alloc.equity,
+              bondStart: alloc.bond,
+              cashStart: alloc.cash,
+              years
+            };
+
+            let simResult;
+            if (testType === 'MC') {
+              simResult = runMonteCarloSimulation(config);
+            } else {
+              simResult = runHistoricalSimulation(config);
+            }
+
+            return {
+              ...alloc,
+              rate: simResult.stats.successRate,
+              avgProt: simResult.stats.avgProtMonths,
+              medianFinal: simResult.stats.medianFinal
+            };
+          };
+
+          // Run original allocation first
+          const originalResult = runSimForAlloc({ equity: originalEquity, bond: originalBond, cash: originalCash });
+
+          // Test all allocations and find best
+          let bestResult = null;
+          allocations.forEach(alloc => {
+            const result = runSimForAlloc(alloc);
+            // Only consider if protection is not worse
+            if (result.avgProt <= originalResult.avgProt) {
+              if (!bestResult || result.rate > bestResult.rate) {
+                bestResult = result;
+              }
+            }
+          });
+
+          // Render results
+          renderOptimisationResults(testType, originalResult, bestResult, totalFunds, resultsDiv);
+        } catch (error) {
+          console.error('Optimisation error:', error);
+          resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        } finally {
+          optimiseRunning = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Optimise Allocation';
+          }
+        }
+      }, 50);
+    };
+
+    // Render optimisation results
+    function renderOptimisationResults(testType, original, best, totalFunds, container) {
+      let html = '';
+
+      if (best && best.rate > original.rate) {
+        const medianDiff = best.medianFinal - original.medianFinal;
+        const medianDiffPct = original.medianFinal > 0 ? (medianDiff / original.medianFinal * 100) : 0;
+
+        html = `
+          <div class="card" style="margin-top: 20px; border-color: var(--success);">
+            <h3 style="color: var(--success); margin-top: 0;">Better Allocation Found</h3>
+            <p style="color: var(--text-muted); margin-bottom: 16px;">A different fund split could improve your success rate without increasing protection usage:</p>
+
+            <div class="grid-2" style="gap: 20px; margin-bottom: 20px;">
+              <!-- Original -->
+              <div style="padding: 16px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div style="font-weight: 500; margin-bottom: 12px; color: var(--text-muted);">Your Current Split</div>
+                <div style="font-size: 24px; font-weight: 600; color: var(--warning);">${original.rate.toFixed(1)}%</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Success Rate</div>
+                <div style="font-size: 13px;">Equity: ${formatCurrency(original.equity)} (${Math.round(original.equity/totalFunds*100)}%)</div>
+                <div style="font-size: 13px;">Bonds: ${formatCurrency(original.bond)} (${Math.round(original.bond/totalFunds*100)}%)</div>
+                <div style="font-size: 13px;">Cash: ${formatCurrency(original.cash)} (${Math.round(original.cash/totalFunds*100)}%)</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+                  Avg protection: ${original.avgProt.toFixed(0)} mo | Median final: ${formatCurrency(original.medianFinal)}
+                </div>
+              </div>
+
+              <!-- Optimised -->
+              <div style="padding: 16px; background: rgba(46,160,67,0.1); border-radius: 8px; border: 1px solid var(--success);">
+                <div style="font-weight: 500; margin-bottom: 12px; color: var(--success);">Optimised Split</div>
+                <div style="font-size: 24px; font-weight: 600; color: var(--success);">${best.rate.toFixed(1)}%</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Success Rate (+${(best.rate - original.rate).toFixed(1)}%)</div>
+                <div style="font-size: 13px;">Equity: ${formatCurrency(best.equity)} (${Math.round(best.equity/totalFunds*100)}%)</div>
+                <div style="font-size: 13px;">Bonds: ${formatCurrency(best.bond)} (${Math.round(best.bond/totalFunds*100)}%)</div>
+                <div style="font-size: 13px;">Cash: ${formatCurrency(best.cash)} (${Math.round(best.cash/totalFunds*100)}%)</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+                  Avg protection: ${best.avgProt.toFixed(0)} mo | Median final: ${formatCurrency(best.medianFinal)}
+                </div>
+              </div>
+            </div>
+
+            ${medianDiff < 0 ? `
+              <div class="alert alert-warning" style="margin-bottom: 16px;">
+                <strong>Trade-off:</strong> The optimised allocation has a ${Math.abs(medianDiffPct).toFixed(0)}% lower median final value.
+                This is because it likely has less equity exposure. You gain safety but may sacrifice some upside.
+              </div>
+            ` : medianDiff > 0 ? `
+              <div class="alert alert-info" style="margin-bottom: 16px;">
+                <strong>Bonus:</strong> The optimised allocation also has a ${medianDiffPct.toFixed(0)}% higher median final value!
+              </div>
+            ` : ''}
+
+            <div class="alert alert-info" style="margin-bottom: 16px;">
+              <strong>To apply this allocation:</strong> Click the button below to update your Settings with these new fund minimums.
+            </div>
+
+            <button onclick="applyOptimisedAllocationUI(${best.equity}, ${best.bond}, ${best.cash})" style="width: 100%;">
+              Apply Optimised Allocation to Settings
+            </button>
+          </div>
+        `;
+      } else {
+        html = `
+          <div class="card" style="margin-top: 20px; border-color: var(--primary);">
+            <h3 style="color: var(--primary); margin-top: 0;">Your Allocation is Already Optimal</h3>
+            <p style="color: var(--text-muted);">
+              Based on testing ${Math.round(100 * 5 / 5)} different allocations, your current fund split appears to be optimal
+              for maximising success rate while minimising protection usage.
+            </p>
+            <div style="padding: 16px; background: var(--card-alt); border-radius: 8px; margin-top: 16px;">
+              <div style="font-size: 24px; font-weight: 600; color: var(--success);">${original.rate.toFixed(1)}%</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Success Rate</div>
+              <div style="font-size: 13px; margin-top: 8px;">
+                Equity: ${formatCurrency(original.equity)} | Bonds: ${formatCurrency(original.bond)} | Cash: ${formatCurrency(original.cash)}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    // Apply optimised allocation to settings
+    window.applyOptimisedAllocationUI = async function(equity, bond, cash) {
+      // Update stress settings
+      document.getElementById('ssEquityMin').value = equity;
+      document.getElementById('ssBondMin').value = bond;
+      document.getElementById('ssCashTarget').value = cash;
+
+      // Update decision settings
+      document.getElementById('dsEquityMin').value = equity;
+      document.getElementById('dsBondMin').value = bond;
+      document.getElementById('dsCashTarget').value = cash;
+
+      // Update test inputs
+      document.getElementById('mcEquity').value = equity;
+      document.getElementById('mcBond').value = bond;
+      document.getElementById('mcCash').value = cash;
+      document.getElementById('histEquity').value = equity;
+      document.getElementById('histBond').value = bond;
+      document.getElementById('histCash').value = cash;
+      document.getElementById('scenEquity').value = equity;
+      document.getElementById('scenBond').value = bond;
+      document.getElementById('scenCash').value = cash;
+
+      // Save to Firebase if logged in
+      if (isLoggedIn()) {
+        try {
+          await saveStressSettings({
+            equityMin: equity,
+            bondMin: bond,
+            cashTarget: cash
+          });
+        } catch (e) {
+          console.error('Error saving optimised settings:', e);
+        }
+      }
+
+      alert('Settings updated! Run the test again to see the full results with your new allocation.');
+    };
+
+    // Historical event mapping
+    const historicalEvents = {
+      1929: 'Wall Street Crash / Great Depression',
+      1930: 'Great Depression',
+      1931: 'Great Depression',
+      1932: 'Great Depression',
+      1937: 'Recession of 1937',
+      1968: 'Late 1960s stagflation',
+      1969: 'Late 1960s recession',
+      1973: 'Oil Crisis / 1973-74 crash',
+      1974: '1973-74 bear market',
+      2000: 'Dot-com bubble burst',
+      2001: 'Dot-com bust / 9/11',
+      2007: 'Global Financial Crisis',
+      2008: 'Global Financial Crisis',
+      2022: 'Post-COVID inflation / rate hikes'
+    };
+
+    // Build worst periods table for historical simulation
+    function buildWorstPeriodsTable(results) {
+      if (!results || results.length === 0) return '';
+
+      // Get worst 5 periods by years survived (or protection if no failures)
+      const failed = results.filter(r => r.failed).sort((a, b) => a.years - b.years);
+      const withProtection = results.filter(r => r.protMonths > 0).sort((a, b) => b.protMonths - a.protMonths);
+
+      // Show failed periods or worst protection periods
+      const worstPeriods = failed.length > 0 ? failed.slice(0, 5) : withProtection.slice(0, 5);
+
+      if (worstPeriods.length === 0) return '';
+
+      let html = `
+        <details style="margin-top: 24px;">
+          <summary style="cursor: pointer; font-weight: 600; color: var(--danger); margin-bottom: 10px;">
+            ${failed.length > 0 ? 'Worst Periods (Failed)' : 'Worst Periods (Most Protection)'}
+          </summary>
+          <div style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%; margin-top: 10px;">
+              <thead>
+                <tr>
+                  <th>Start Year</th>
+                  <th>Event</th>
+                  <th>Years Survived</th>
+                  <th>Protection Months</th>
+                  <th>Final Value</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      worstPeriods.forEach(r => {
+        const startYear = r.startYear || r.seed;
+        const event = historicalEvents[startYear] || '-';
+        const statusClass = r.failed ? 'danger' : 'success';
+
+        html += `
+          <tr>
+            <td>${startYear}</td>
+            <td style="font-size: 12px;">${event}</td>
+            <td>${r.years.toFixed(1)}</td>
+            <td>${r.protMonths}</td>
+            <td>${formatCurrency(r.final)}</td>
+            <td style="color: var(--${statusClass});">${r.failed ? 'FAILED' : 'OK'}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+              </tbody>
+            </table>
+          </div>
+        </details>
+      `;
+
+      return html;
+    }
+
+    // Render stress test results with charts
+    function renderStressResults(stats, results, title, containerId, years) {
       const successClass = stats.successRate >= 90 ? 'success' : stats.successRate >= 80 ? 'warning' : 'danger';
+      const chartId = containerId.replace('Results', '');
+
+      // Build enhanced stats from new structure
+      const survivalStats = stats.survival || {};
+      const finalStats = stats.finalValue || {};
+      const protStats = stats.protection || {};
 
       let html = `
         <div class="card">
           <h2>${title}</h2>
+
+          <!-- Primary Stats -->
           <div class="grid-4" style="margin-bottom: 24px;">
             <div class="stat-box ${successClass}">
               <div class="stat-value">${stats.successRate.toFixed(1)}%</div>
@@ -1406,34 +1810,68 @@
               <div class="stat-label">Failures</div>
             </div>
             <div class="stat-box">
-              <div class="stat-value">${stats.p10Years.toFixed(1)}</div>
+              <div class="stat-value">${(survivalStats.p10 || stats.p10Years || 0).toFixed(1)}</div>
               <div class="stat-label">10th %ile Years</div>
             </div>
             <div class="stat-box success">
-              <div class="stat-value">${formatCurrency(stats.medianFinal)}</div>
+              <div class="stat-value">${formatCurrency(finalStats.p50 || stats.medianFinal || 0)}</div>
               <div class="stat-label">Median Final</div>
             </div>
           </div>
 
-          <div class="grid-4">
+          <!-- 7-Point Percentile Stats -->
+          <details style="margin-bottom: 20px;">
+            <summary style="cursor: pointer; font-weight: 600; color: var(--primary); margin-bottom: 10px;">
+              Detailed Percentile Statistics
+            </summary>
+            <div class="grid-7" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-top: 10px;">
+              ${['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95'].map(p => `
+                <div class="stat-box mini">
+                  <div class="stat-value" style="font-size: 14px;">${formatCurrency(finalStats[p] || 0)}</div>
+                  <div class="stat-label" style="font-size: 10px;">${p.toUpperCase()}</div>
+                </div>
+              `).join('')}
+            </div>
+          </details>
+
+          <!-- Protection Stats -->
+          <div class="grid-4" style="margin-bottom: 24px;">
             <div class="stat-box">
-              <div class="stat-value">${stats.runsWithProtection}</div>
+              <div class="stat-value">${protStats.runsWithProtection || stats.runsWithProtection || 0}</div>
               <div class="stat-label">Runs w/ Protection</div>
             </div>
             <div class="stat-box warning">
-              <div class="stat-value">${stats.avgProtMonths.toFixed(0)}</div>
+              <div class="stat-value">${(protStats.avgMonths || stats.avgProtMonths || 0).toFixed(0)}</div>
               <div class="stat-label">Avg Protection Mo</div>
             </div>
             <div class="stat-box">
-              <div class="stat-value">${stats.maxConsecutive}</div>
+              <div class="stat-value">${protStats.maxConsecutive || stats.maxConsecutive || 0}</div>
               <div class="stat-label">Max Consecutive</div>
             </div>
             <div class="stat-box">
-              <div class="stat-value">${formatCurrency(stats.avgFinal)}</div>
+              <div class="stat-value">${formatCurrency(finalStats.avg || stats.avgFinal || 0)}</div>
               <div class="stat-label">Avg Final (success)</div>
             </div>
           </div>
 
+          <!-- Charts -->
+          <div class="chart-row">
+            <div class="chart-container">
+              <canvas id="${chartId}ConeChart" width="800" height="400"></canvas>
+            </div>
+            <div class="chart-container">
+              <canvas id="${chartId}TrajChart" width="800" height="400"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-container" style="max-width: 600px;">
+            <canvas id="${chartId}HistChart" width="600" height="250"></canvas>
+          </div>
+
+          <!-- Worst Periods Table (for historical only) -->
+          ${containerId === 'histResults' ? buildWorstPeriodsTable(results) : ''}
+
+          <!-- Result Summary -->
           <div class="alert ${successClass === 'success' ? 'alert-success' : successClass === 'warning' ? 'alert-warning' : 'alert-danger'}" style="margin-top: 24px;">
             ${stats.successRate >= 90 ? 'Excellent! Very high probability of success.' :
               stats.successRate >= 80 ? 'Good but some downside risk. Consider adjustments.' :
@@ -1443,11 +1881,42 @@
       `;
 
       document.getElementById(containerId).innerHTML = html;
+
+      // Draw charts after DOM is updated
+      setTimeout(() => {
+        const coneCanvas = document.getElementById(`${chartId}ConeChart`);
+        const trajCanvas = document.getElementById(`${chartId}TrajChart`);
+        const histCanvas = document.getElementById(`${chartId}HistChart`);
+
+        if (coneCanvas && results && results.length > 0) {
+          drawCone(coneCanvas, results, { years, title: 'Cone of Uncertainty (5th-95th Percentile)' });
+        }
+
+        if (trajCanvas && results && results.length > 0) {
+          drawTrajectories(trajCanvas, results, { years, title: 'Sample Trajectories (100 runs)' });
+        }
+
+        if (histCanvas && results && results.length > 0) {
+          drawHistogram(histCanvas, results, { title: 'Protection Months Distribution' });
+        }
+      }, 50);
     }
 
     // Render scenario results
     function renderScenarioResults(scenarios, containerId) {
+      latestScenResults = scenarios;
+
       let html = '<div class="card"><h2>Scenario Analysis</h2>';
+
+      // Add comparison chart
+      html += `
+        <div class="chart-container" style="margin-bottom: 24px;">
+          <canvas id="scenCompChart" width="900" height="400"></canvas>
+        </div>
+      `;
+
+      // Scenario result cards
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
       for (const [key, scenario] of Object.entries(scenarios)) {
         const result = scenario.result;
@@ -1465,13 +1934,22 @@
             <div style="text-align: right;">
               <div style="font-size: 24px; color: var(--${statusClass});">${result.years.toFixed(1)} yrs</div>
               <div style="font-size: 12px; color: var(--${statusClass});">${result.failed ? 'FAILED' : 'OK'}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">Final: ${formatCurrency(result.final)}</div>
             </div>
           </div>
         `;
       }
 
-      html += '</div>';
+      html += '</div></div>';
       document.getElementById(containerId).innerHTML = html;
+
+      // Draw scenario comparison chart
+      setTimeout(() => {
+        const chartCanvas = document.getElementById('scenCompChart');
+        if (chartCanvas && scenarios) {
+          drawScenarioComparison(chartCanvas, scenarios, { years: 35, title: 'Scenario Comparison' });
+        }
+      }, 50);
     }
 
     // Load stress settings into UI
