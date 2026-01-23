@@ -19,7 +19,7 @@ import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDiwM2Z7yrLoTjuQvJtQ1L5PY753Mw2Sb0",
+  apiKey: "AIzaSyDIwmZ27yriOTj-QvJtQlL5PY753Mw2Sb6",
   authDomain: "pensiontools-4b237.firebaseapp.com",
   projectId: "pensiontools-4b237",
   storageBucket: "pensiontools-4b237.firebasestorage.app",
