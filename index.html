@@ -203,6 +203,27 @@
       flex: 1;
     }
 
+    /* Number input formatting overlay */
+    .input-with-unit {
+      position: relative;
+    }
+
+    .number-format-overlay {
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* Hide spinner buttons on number inputs for cleaner look */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
     /* Buttons */
     button {
       padding: 12px 24px;
@@ -261,9 +282,10 @@
     .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
 
     @media (max-width: 768px) {
-      .grid-2, .grid-3, .grid-4 {
+      .grid-2, .grid-3, .grid-4, .grid-5 {
         grid-template-columns: 1fr;
       }
     }
@@ -1143,6 +1165,155 @@
     // Set default month
     document.getElementById('entryMonth').value = getCurrentMonth();
 
+    // ============================================================
+    // Number Input Enhancements: Auto-select and Thousand Separators
+    // ============================================================
+
+    /**
+     * Format a number with thousand separators
+     * @param {number|string} value - The value to format
+     * @returns {string} Formatted string with commas
+     */
+    function formatWithCommas(value) {
+      const num = parseFloat(value);
+      if (isNaN(num)) return '';
+      return num.toLocaleString('en-GB', { maximumFractionDigits: 2 });
+    }
+
+    /**
+     * Remove thousand separators and return raw number
+     * @param {string} value - The formatted string
+     * @returns {string} Raw number string
+     */
+    function removeCommas(value) {
+      return value.replace(/,/g, '');
+    }
+
+    /**
+     * Initialize number input enhancements
+     * - Auto-select all text on focus
+     * - Show thousand separators when not editing
+     */
+    function initNumberInputs() {
+      const numberInputs = document.querySelectorAll('input[type="number"]');
+
+      numberInputs.forEach(input => {
+        // Store original value for formatting
+        let rawValue = input.value;
+
+        // Auto-select all text on focus
+        input.addEventListener('focus', function(e) {
+          // Use setTimeout to ensure the select happens after the focus
+          setTimeout(() => {
+            this.select();
+          }, 0);
+        });
+
+        // Also select on click (for mouse users who click without tab)
+        input.addEventListener('click', function(e) {
+          // Only select if not already selected and not holding shift/ctrl for partial selection
+          if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            this.select();
+          }
+        });
+      });
+    }
+
+    // Create a formatted display overlay system for number inputs
+    function initFormattedDisplays() {
+      const numberInputs = document.querySelectorAll('input[type="number"]');
+
+      numberInputs.forEach(input => {
+        // Skip inputs that already have formatting
+        if (input.dataset.formatted) return;
+        input.dataset.formatted = 'true';
+
+        const wrapper = input.closest('.input-with-unit') || input.parentElement;
+
+        // Create overlay span for formatted display
+        const overlay = document.createElement('span');
+        overlay.className = 'number-format-overlay';
+        overlay.style.cssText = `
+          position: absolute;
+          left: ${input.closest('.input-with-unit') ? '28px' : '12px'};
+          top: 50%;
+          transform: translateY(-50%);
+          pointer-events: none;
+          color: inherit;
+          font-size: inherit;
+          font-family: inherit;
+          background: transparent;
+          z-index: 1;
+        `;
+
+        // Make wrapper relative if needed
+        if (getComputedStyle(wrapper).position === 'static') {
+          wrapper.style.position = 'relative';
+        }
+
+        // Function to update overlay
+        function updateOverlay() {
+          const val = parseFloat(input.value);
+          if (!isNaN(val) && val >= 1000) {
+            overlay.textContent = formatWithCommas(val);
+            overlay.style.display = 'block';
+            input.style.color = 'transparent';
+          } else {
+            overlay.style.display = 'none';
+            input.style.color = '';
+          }
+        }
+
+        // Hide overlay on focus, show on blur
+        input.addEventListener('focus', () => {
+          overlay.style.display = 'none';
+          input.style.color = '';
+        });
+
+        input.addEventListener('blur', updateOverlay);
+        input.addEventListener('input', () => {
+          // Keep overlay hidden while typing
+          if (document.activeElement === input) {
+            overlay.style.display = 'none';
+            input.style.color = '';
+          }
+        });
+
+        // Insert overlay
+        wrapper.appendChild(overlay);
+
+        // Initial format
+        updateOverlay();
+      });
+    }
+
+    // Initialize after a short delay to ensure DOM is ready
+    setTimeout(() => {
+      initNumberInputs();
+      initFormattedDisplays();
+    }, 100);
+
+    // Re-init when new content is added (for dynamically created inputs)
+    const observer = new MutationObserver((mutations) => {
+      let hasNewInputs = false;
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === 1) {
+            if (node.matches?.('input[type="number"]') || node.querySelector?.('input[type="number"]')) {
+              hasNewInputs = true;
+            }
+          }
+        });
+      });
+      if (hasNewInputs) {
+        setTimeout(() => {
+          initNumberInputs();
+          initFormattedDisplays();
+        }, 50);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
     // Current decision state
     let currentDecision = null;
 
@@ -1426,7 +1597,7 @@
     }
 
     // Monte Carlo simulation
-    window.runMonteCarloUI = function() {
+    window.runMonteCarloUI = async function() {
       const config = {
         equityStart: parseFloat(document.getElementById('mcEquity').value) || 250000,
         bondStart: parseFloat(document.getElementById('mcBond').value) || 200000,
@@ -1435,6 +1606,9 @@
       };
 
       document.getElementById('mcResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running simulation...</div>';
+
+      // Pre-load settings async to ensure cache is populated
+      await getStressSettingsAsync();
 
       setTimeout(() => {
         try {
@@ -1449,7 +1623,7 @@
     };
 
     // Historical simulation
-    window.runHistoricalUI = function() {
+    window.runHistoricalUI = async function() {
       const config = {
         equityStart: parseFloat(document.getElementById('histEquity').value) || 250000,
         bondStart: parseFloat(document.getElementById('histBond').value) || 200000,
@@ -1458,6 +1632,9 @@
       };
 
       document.getElementById('histResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running simulation...</div>';
+
+      // Pre-load settings async to ensure cache is populated
+      await getStressSettingsAsync();
 
       setTimeout(() => {
         try {
@@ -1472,7 +1649,7 @@
     };
 
     // Scenarios simulation
-    window.runScenariosUI = function() {
+    window.runScenariosUI = async function() {
       const config = {
         equityStart: parseFloat(document.getElementById('scenEquity').value) || 250000,
         bondStart: parseFloat(document.getElementById('scenBond').value) || 200000,
@@ -1481,6 +1658,9 @@
       };
 
       document.getElementById('scenResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running scenarios...</div>';
+
+      // Pre-load settings async to ensure cache is populated
+      await getStressSettingsAsync();
 
       setTimeout(() => {
         try {
@@ -1497,7 +1677,7 @@
     let optimiseRunning = false;
 
     // Run allocation optimisation
-    window.runOptimisationUI = function(testType) {
+    window.runOptimisationUI = async function(testType) {
       if (optimiseRunning) return;
       optimiseRunning = true;
 
@@ -1528,6 +1708,9 @@
 
       resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Testing allocations...</div>';
 
+      // Pre-load settings async to ensure we have current values (not defaults)
+      await getStressSettingsAsync();
+
       setTimeout(() => {
         try {
           // Generate allocation combinations to test (5% increments, cash 5-30%)
@@ -1546,9 +1729,8 @@
           }
 
           // Run simulations for each allocation
+          // Tests "what if I started with different amounts" while keeping minimums fixed
           const runSimForAlloc = (alloc) => {
-            // Only pass start values - minimums come from global stress settings
-            // This tests "what if I started with different amounts" not "different thresholds"
             const config = {
               equityStart: alloc.equity,
               bondStart: alloc.bond,
@@ -1575,38 +1757,22 @@
           const originalResult = runSimForAlloc({ equity: originalEquity, bond: originalBond, cash: originalCash });
 
           // Test all allocations and find best
-          // Priority: Best success rate with similar or less protection
-          // Secondary: Allow slightly more protection (+20%) if significantly better success (+3%)
+          // Match PWA logic: pick allocation with highest success rate that doesn't use more protection
           let bestResult = null;
-          let bestAltResult = null;  // Alternative with higher protection
 
           allocations.forEach(alloc => {
             const result = runSimForAlloc(alloc);
 
-            // Primary: same or less protection
-            if (result.avgProt <= originalResult.avgProt + 0.5) {
+            // Only consider if protection is not worse than original (matches PWA)
+            if (result.avgProt <= originalResult.avgProt) {
               if (!bestResult || result.rate > bestResult.rate) {
                 bestResult = result;
               }
             }
-
-            // Secondary: allow up to 20% more protection if success is 3%+ better
-            const protIncrease = result.avgProt - originalResult.avgProt;
-            const successIncrease = result.rate - originalResult.rate;
-            if (protIncrease <= originalResult.avgProt * 0.2 + 2 && successIncrease >= 3) {
-              if (!bestAltResult || result.rate > bestAltResult.rate) {
-                bestAltResult = result;
-              }
-            }
           });
 
-          // If no primary result found or alt is significantly better, use alt
-          if (!bestResult || (bestAltResult && bestAltResult.rate > bestResult.rate + 2)) {
-            bestResult = bestAltResult || bestResult;
-          }
-
           // Render results
-          renderOptimisationResults(testType, originalResult, bestResult, totalFunds, resultsDiv);
+          renderOptimisationResults(testType, originalResult, bestResult, totalFunds, allocations.length, resultsDiv);
         } catch (error) {
           console.error('Optimisation error:', error);
           resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
@@ -1621,7 +1787,7 @@
     };
 
     // Render optimisation results
-    function renderOptimisationResults(testType, original, best, totalFunds, container) {
+    function renderOptimisationResults(testType, original, best, totalFunds, numAllocations, container) {
       let html = '';
 
       if (best && best.rate > original.rate) {
@@ -1686,7 +1852,7 @@
           <div class="card" style="margin-top: 20px; border-color: var(--primary);">
             <h3 style="color: var(--primary); margin-top: 0;">Your Allocation is Already Optimal</h3>
             <p style="color: var(--text-muted);">
-              Based on testing ${Math.round(100 * 5 / 5)} different allocations, your current fund split appears to be optimal
+              Based on testing ${numAllocations} different allocations, your current fund split appears to be optimal
               for maximising success rate while minimising protection usage.
             </p>
             <div style="padding: 16px; background: var(--card-alt); border-radius: 8px; margin-top: 16px;">
@@ -1870,7 +2036,7 @@
           </details>
 
           <!-- Protection Stats -->
-          <div class="grid-4" style="margin-bottom: 24px;">
+          <div class="grid-5" style="margin-bottom: 24px;">
             <div class="stat-box">
               <div class="stat-value">${protStats.runsWithProtection || stats.runsWithProtection || 0}</div>
               <div class="stat-label">Runs w/ Protection</div>
@@ -1878,6 +2044,10 @@
             <div class="stat-box warning">
               <div class="stat-value">${(protStats.avgMonths || stats.avgProtMonths || 0).toFixed(0)}</div>
               <div class="stat-label">Avg Protection Mo</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value">${(protStats.avgConsecutive || stats.avgConsecutive || 0).toFixed(1)}</div>
+              <div class="stat-label">Avg Consecutive</div>
             </div>
             <div class="stat-box">
               <div class="stat-value">${protStats.maxConsecutive || stats.maxConsecutive || 0}</div>

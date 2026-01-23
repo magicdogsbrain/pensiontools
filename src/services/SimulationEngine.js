@@ -526,6 +526,7 @@ export function analyzeResults(results) {
       avgMonths: protMonths.reduce((a, b) => a + b, 0) / results.length,
       maxMonths: Math.max(...protMonths),
       maxConsecutive: Math.max(...results.map(r => r.maxConsec)),
+      avgConsecutive: results.reduce((a, r) => a + r.maxConsec, 0) / results.length,
       p50Months: percentile(protMonths, 0.50),
       p90Months: percentile(protMonths, 0.90),
       p95Months: percentile(protMonths, 0.95)
@@ -536,6 +537,7 @@ export function analyzeResults(results) {
     avgProtMonths: protMonths.reduce((a, b) => a + b, 0) / results.length,
     maxProtMonths: Math.max(...protMonths),
     maxConsecutive: Math.max(...results.map(r => r.maxConsec)),
+    avgConsecutive: results.reduce((a, r) => a + r.maxConsec, 0) / results.length,
 
     // HODL statistics
     hodl: {

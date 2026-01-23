@@ -157,16 +157,13 @@ export function drawTrajectories(canvas, results, options = {}) {
 
   const years = options.years || 35;
 
-  let maxValue = 0;
-  results.forEach(r => {
-    r.hist.forEach(h => {
-      if (h.total > maxValue) maxValue = h.total;
-    });
-  });
-  maxValue *= 1.1;
+  // Cap Y-axis at 5 million to focus on lower values
+  const Y_CAP = 5000000;
+  const maxValue = Y_CAP;
 
   const xScale = (year) => padding.left + (year / years) * chartWidth;
-  const yScale = (value) => padding.top + chartHeight - (value / maxValue) * chartHeight;
+  // Cap values at Y_CAP for display (trajectories above cap saturate at top)
+  const yScale = (value) => padding.top + chartHeight - (Math.min(value, Y_CAP) / maxValue) * chartHeight;
 
   drawGrid(ctx, padding, chartWidth, chartHeight, years, maxValue, options.title || 'Sample Trajectories', COLORS);
 
