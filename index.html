@@ -1345,6 +1345,9 @@
       renderHistory();
       renderTaxYears();
 
+      // ALWAYS pre-fill ALL input fields from stored settings on app load
+      initializeAllInputsFromSettings();
+
       // Switch to the requested tab
       if (initialTab === 'stress') {
         // Activate stress tab
@@ -1352,7 +1355,72 @@
         document.querySelector('.tab[data-tab="stress"]').classList.add('active');
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById('stress-content').classList.add('active');
-        loadStressSettings();
+      }
+    }
+
+    /**
+     * Initialize ALL input fields from stored settings
+     * Called once on app load to ensure all forms have correct values
+     */
+    async function initializeAllInputsFromSettings() {
+      try {
+        // Load both settings sets
+        const stressSettings = await getStressSettingsAsync();
+        const decisionSettings = await getDecisionSettingsAsync();
+
+        // Pre-fill Decision Tool entry form
+        document.getElementById('entryEquity').value = decisionSettings.equityMin || 250000;
+        document.getElementById('entryBond').value = decisionSettings.bondMin || 200000;
+        document.getElementById('entryCash').value = decisionSettings.cashTarget || 50000;
+
+        // Pre-fill Decision Tool settings
+        document.getElementById('dsEquityMin').value = decisionSettings.equityMin || 250000;
+        document.getElementById('dsBondMin').value = decisionSettings.bondMin || 200000;
+        document.getElementById('dsCashTarget').value = decisionSettings.cashTarget || 50000;
+        document.getElementById('dsDuration').value = decisionSettings.duration || 35;
+        document.getElementById('dsBaseSalary').value = decisionSettings.baseSalary || 30000;
+        document.getElementById('dsProtectionFactor').value = decisionSettings.protectionFactor || 20;
+        document.getElementById('dsRecoveryBuffer').value = decisionSettings.recoveryBuffer || 10000;
+        document.getElementById('dsConsecutiveLimit').value = decisionSettings.consecutiveLimit || 3;
+
+        // Pre-fill ALL stress test input tabs (Monte Carlo, Historical, Scenarios)
+        ['mc', 'hist', 'scen'].forEach(prefix => {
+          const equityEl = document.getElementById(prefix + 'Equity');
+          const bondEl = document.getElementById(prefix + 'Bond');
+          const cashEl = document.getElementById(prefix + 'Cash');
+          const yearsEl = document.getElementById(prefix + 'Years');
+
+          if (equityEl) equityEl.value = stressSettings.equityMin;
+          if (bondEl) bondEl.value = stressSettings.bondMin;
+          if (cashEl) cashEl.value = stressSettings.cashTarget;
+          if (yearsEl) yearsEl.value = stressSettings.duration;
+        });
+
+        // Pre-fill Stress Settings tab
+        document.getElementById('ssBaseSalary').value = stressSettings.baseSalary;
+        document.getElementById('ssEquityMin').value = stressSettings.equityMin;
+        document.getElementById('ssBondMin').value = stressSettings.bondMin;
+        document.getElementById('ssCashTarget').value = stressSettings.cashTarget;
+        document.getElementById('ssDuration').value = stressSettings.duration;
+        document.getElementById('ssPA').value = stressSettings.pa;
+        document.getElementById('ssBRL').value = stressSettings.brl;
+        document.getElementById('ssHRL').value = stressSettings.hrl;
+        document.getElementById('ssTaxMode').value = stressSettings.taxMode || 'inflates';
+        document.getElementById('ssOther').value = stressSettings.other || 0;
+        document.getElementById('ssStatePension').value = stressSettings.statePension || 12000;
+        document.getElementById('ssStatePensionYear').value = stressSettings.statePensionYear || 12;
+        document.getElementById('ssConsecutiveLimit').value = stressSettings.consecutiveLimit || 3;
+        document.getElementById('ssProtectionMult').value = stressSettings.protectionMult || 0.8;
+        document.getElementById('ssDisableProtection').checked = stressSettings.disableProtection || false;
+        document.getElementById('ssHodlEnabled').checked = stressSettings.hodlEnabled || false;
+        document.getElementById('ssHodlValue').value = stressSettings.hodlValue || 25000;
+
+        // Refresh number overlays after all values are set
+        refreshNumberOverlays();
+
+        console.log('All inputs initialized from stored settings');
+      } catch (error) {
+        console.error('Error initializing inputs from settings:', error);
       }
     }
 
@@ -1522,13 +1590,9 @@
         document.querySelectorAll('.stress-subtab').forEach(c => c.classList.add('hidden'));
         document.getElementById(`stress-${tab.dataset.stresstab}`).classList.remove('hidden');
 
-        // Load settings when switching to settings tab
+        // Only reload settings when explicitly switching to settings tab
+        // Don't overwrite test inputs - user may have entered custom values to test
         if (tab.dataset.stresstab === 'stresssettings') loadStressSettings();
-
-        // Pre-fill inputs when switching to test tabs
-        if (['montecarlo', 'historical', 'scenarios'].includes(tab.dataset.stresstab)) {
-          prefillStressInputs(tab.dataset.stresstab);
-        }
       });
     });
 
