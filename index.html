@@ -1448,6 +1448,25 @@
           taxMode: wizardData.taxMode
         });
 
+        // Create initial tax year based on current date
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentYear = now.getFullYear();
+        // Tax year runs April to March: if month >= 4, we're in YY/YY+1, else YY-1/YY
+        const taxYearStart = currentMonth >= 4 ? currentYear : currentYear - 1;
+        const taxYear = String(taxYearStart % 100).padStart(2, '0') + '/' + String((taxYearStart + 1) % 100).padStart(2, '0');
+
+        // Save the initial tax year with wizard data
+        await saveTaxYearConfig(taxYear, {
+          pa: 12570,
+          brl: 50270,
+          hrl: 125140,
+          cpi: 0.025,
+          other: wizardData.otherIncome || 0,
+          statePension: wizardData.statePension || 0
+        });
+        console.log(`Created initial tax year ${taxYear} with other=${wizardData.otherIncome}, statePension=${wizardData.statePension}`);
+
         // Pre-fill form with wizard values
         document.getElementById('entryEquity').value = wizardData.decisionEquity;
         document.getElementById('entryBond').value = wizardData.decisionBond;
