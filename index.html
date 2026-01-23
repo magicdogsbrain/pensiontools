@@ -1547,15 +1547,12 @@
 
           // Run simulations for each allocation
           const runSimForAlloc = (alloc) => {
-            // IMPORTANT: Pass allocation as BOTH start values AND minimums
-            // The minimums determine when protection triggers during simulation
+            // Only pass start values - minimums come from global stress settings
+            // This tests "what if I started with different amounts" not "different thresholds"
             const config = {
               equityStart: alloc.equity,
               bondStart: alloc.bond,
               cashStart: alloc.cash,
-              equityMin: alloc.equity,
-              bondMin: alloc.bond,
-              cashTarget: alloc.cash,
               years
             };
 
