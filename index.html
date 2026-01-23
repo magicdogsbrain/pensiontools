@@ -1644,9 +1644,15 @@
       const history = await getHistoryAsync();
       const allTaxYears = getAllTaxYears();
       const taxYear = getTaxYearFromDate(dateStr);
-      const taxYearConfig = allTaxYears[taxYear] || allTaxYears['25/26'] || { pa: 12570, brl: 50270, hrl: 125140, cpi: 0.025, other: 0, statePension: 0 };
       const yearNum = getYearNum(dateStr);
       const [year, month] = dateStr.split('-').map(Number);
+
+      // Validate that the tax year exists
+      if (!allTaxYears[taxYear]) {
+        throw new Error(`Tax year ${taxYear} is not configured. Please add it in the Settings tab before calculating.`);
+      }
+
+      const taxYearConfig = allTaxYears[taxYear];
 
       // Get tax config from the specific tax year
       const PA = taxYearConfig.pa || 12570;

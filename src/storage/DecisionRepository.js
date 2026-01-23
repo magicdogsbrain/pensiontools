@@ -38,7 +38,9 @@ function getDefaultDecisionDB() {
       consecutiveLimit: DRAWDOWN_DEFAULTS.CONSECUTIVE_LIMIT,
       startDate: null
     },
-    taxYears: {},
+    taxYears: {
+      '25/26': { pa: 12570, brl: 50270, hrl: 125140, cpi: 0.025, other: 0, statePension: 0 }
+    },
     history: [],
     lastModified: null,
     checksum: null
