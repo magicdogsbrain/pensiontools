@@ -1894,10 +1894,23 @@
           minGrowth,
           consec,
           stdSipp: stdSippMonthly,
+          // Input values for debugging
+          inputs: {
+            baseSalary: settings.baseSalary,
+            targetGross: settings.baseSalary * cumInf,
+            cumInf,
+            yearNum,
+            taxYear,
+            OTHER,
+            STATE,
+            PA,
+            BRL
+          },
           taxInfo: {
             annualTaxable: grossTaxable,
             headroomToBRL: BRL - grossTaxable,
-            annualTax
+            annualTax,
+            monthlyNet: monthlyNet
           }
         }
       };
