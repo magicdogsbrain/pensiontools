@@ -485,14 +485,15 @@ function buildAlerts(params) {
 /**
  * Saves a decision to history
  * @param {object} decision - Decision to save
+ * @returns {Promise<void>}
  */
-export function saveDecision(decision) {
+export async function saveDecision(decision) {
   const historyRecord = decisionToHistory(decision);
 
   // Add standard SIPP for boost calculations
   historyRecord.stdSipp = decision.sippDraw - (decision.boostAmount || 0);
 
-  addHistoryRecord(historyRecord);
+  await addHistoryRecord(historyRecord);
 }
 
 /**

@@ -94,15 +94,15 @@ const AppState = {
 /**
  * Initializes the application
  */
-export function initApp() {
+export async function initApp() {
   console.log(`Pension Tools v${VERSION} initializing...`);
 
   // Inject styles
   injectStyles();
 
-  // Load data
-  const decisionDB = loadDecisionDB();
-  const stressDB = loadStressDB();
+  // Load data asynchronously
+  const decisionDB = await loadDecisionDBAsync();
+  const stressDB = await loadStressDBAsync();
 
   // Set up event listeners
   setupEventListeners();
@@ -256,18 +256,20 @@ export function runAllScenarios(overrides = {}) {
 /**
  * Generates a drawdown schedule projection
  * @param {number} years - Years to project
+ * @returns {Promise<Array>} Drawdown schedule
  */
-export function getDrawdownProjection(years = 35) {
-  const settings = getStressSettings();
+export async function getDrawdownProjection(years = 35) {
+  const settings = await getStressSettingsAsync();
   return generateDrawdownSchedule(settings, years);
 }
 
 /**
  * Generates a glidepath schedule projection
  * @param {number} years - Years to project
+ * @returns {Promise<Array>} Glidepath schedule
  */
-export function getGlidepathProjection(years = 35) {
-  const settings = getStressSettings();
+export async function getGlidepathProjection(years = 35) {
+  const settings = await getStressSettingsAsync();
   return generateGlidepathSchedule(settings);
 }
 

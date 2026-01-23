@@ -81,26 +81,70 @@ export function createDecision(params = {}) {
  * @returns {object} History record for storage
  */
 export function decisionToHistory(decision) {
+  // Calculate tax on taxable income (SIPP + Other + State)
+  const monthlyTaxable = (decision.sippDraw || 0) + (decision.other || 0) + (decision.statePension || 0);
+  const annualTaxable = monthlyTaxable * 12;
+  const pa = decision.pa || 12570;
+  const brl = decision.brl || 50270;
+
+  let annualTax = 0;
+  if (annualTaxable > pa) {
+    if (annualTaxable <= brl) {
+      annualTax = (annualTaxable - pa) * 0.2;
+    } else {
+      annualTax = (brl - pa) * 0.2 + (annualTaxable - brl) * 0.4;
+    }
+  }
+  const monthlyTax = annualTax / 12;
+  const monthlyNet = monthlyTaxable - monthlyTax + (decision.isaDraw || 0);
+
   return {
+    // Date and context
     date: decision.date,
     taxYear: decision.taxYear,
     yearNum: decision.yearNumber,
+
+    // Fund balances at time of decision
     equity: decision.equity,
     bond: decision.bond,
     cash: decision.cash,
     total: decision.equity + decision.bond + decision.cash,
+
+    // Glidepath minimums
+    adjEquity: decision.adjEquityMin,
+    adjBond: decision.adjBondMin,
+    adjCash: decision.adjCashTarget,
+
+    // Withdrawal source
     source: decision.source,
+    dEquity: decision.drawFromEquity || 0,
+    dBond: decision.drawFromBond || 0,
+    dCash: decision.drawFromCash || 0,
+
+    // Income amounts (monthly)
     sipp: decision.sippDraw,
     isa: decision.isaDraw,
     other: decision.other,
     state: decision.statePension,
+
+    // Tax calculation
+    pa: pa,
+    brl: brl,
+    monthlyTax: monthlyTax,
+    monthlyNet: monthlyNet,
+
+    // Mode and status
+    mode: decision.taxEfficient ? 'Tax-Efficient' : 'Standard',
     inProtection: decision.inProtection,
     reason: decision.protectionReason || '',
+    consecutiveDraws: decision.consecutiveCashDraws || 0,
+
+    // Boost
     boostAmount: decision.boostAmount,
-    rebal: decision.rebalanceActions.join('; '),
-    adjEquity: decision.adjEquityMin,
-    adjBond: decision.adjBondMin,
-    adjCash: decision.adjCashTarget
+    boostEligible: decision.boostEligible || false,
+
+    // Rebalancing
+    rebal: decision.rebalanceActions ? decision.rebalanceActions.join('; ') : ''
   };
 }
 

@@ -2874,20 +2874,62 @@
       let html = '';
       for (const h of history) {
         const protectionClass = h.inProtection ? 'protection' : '';
+        const modeClass = h.mode === 'Tax-Efficient' ? 'tax-efficient' : (h.inProtection ? 'protection' : 'standard');
+
+        // Format withdrawal source details
+        let sourceDetail = h.source;
+        if (h.source === 'Growth' && (h.dEquity > 0 || h.dBond > 0)) {
+          sourceDetail = `Growth (E:${formatCurrency(h.dEquity || 0)} B:${formatCurrency(h.dBond || 0)})`;
+        } else if (h.source === 'Cash') {
+          sourceDetail = `Cash (${formatCurrency(h.dCash || h.sipp || 0)})`;
+        }
+
         html += `
-          <div class="history-item ${protectionClass}">
-            <div>
-              <div class="history-date">${h.date} (${h.taxYear})</div>
-              <div class="history-details">
-                SIPP: ${formatCurrency(h.sipp || 0)} |
-                Source: ${h.source} |
-                Total: ${formatCurrency(h.total || 0)}
-                ${h.inProtection ? ' | PROTECTION' : ''}
+          <div class="history-item ${protectionClass}" style="margin-bottom:12px;padding:16px;background:var(--card-alt);border-radius:8px;border-left:4px solid ${h.inProtection ? 'var(--warning)' : 'var(--primary)'};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <div>
+                <div style="font-weight:600;color:var(--primary);">${h.date}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${h.taxYear} (Year ${h.yearNum || 0})</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="padding:4px 8px;border-radius:4px;font-size:11px;background:${h.inProtection ? 'var(--warning)' : (h.mode === 'Tax-Efficient' ? 'var(--success)' : 'var(--primary)')};color:#000;">${h.mode || 'Standard'}${h.inProtection ? ' (Protection)' : ''}</span>
+                <button class="secondary" style="padding:4px 8px;font-size:11px;" onclick="deleteHistoryEntry('${h.date}')">Delete</button>
               </div>
             </div>
-            <div>
-              <button class="secondary" style="padding: 8px 12px; font-size: 12px;" onclick="deleteHistoryEntry('${h.date}')">Delete</button>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;font-size:13px;">
+              <div>
+                <div style="color:var(--text-muted);font-size:11px;">Fund Balances</div>
+                <div>Equity: ${formatCurrency(h.equity || 0)}</div>
+                <div>Bond: ${formatCurrency(h.bond || 0)}</div>
+                <div>Cash: ${formatCurrency(h.cash || 0)}</div>
+                <div style="font-weight:500;">Total: ${formatCurrency(h.total || 0)}</div>
+              </div>
+
+              <div>
+                <div style="color:var(--text-muted);font-size:11px;">Monthly Income</div>
+                <div>SIPP: ${formatCurrency(h.sipp || 0)}</div>
+                <div>ISA: ${formatCurrency(h.isa || 0)}</div>
+                <div>Other: ${formatCurrency(h.other || 0)}</div>
+                <div>State: ${formatCurrency(h.state || 0)}</div>
+              </div>
+
+              <div>
+                <div style="color:var(--text-muted);font-size:11px;">Tax & Net</div>
+                <div>Tax: ${formatCurrency(h.monthlyTax || 0)}</div>
+                <div style="font-weight:500;color:var(--success);">Net: ${formatCurrency(h.monthlyNet || 0)}</div>
+                ${h.boostAmount > 0 ? `<div style="color:var(--success);">Boost: +${formatCurrency(h.boostAmount)}</div>` : ''}
+              </div>
+
+              <div>
+                <div style="color:var(--text-muted);font-size:11px;">Withdrawal</div>
+                <div>Source: ${sourceDetail}</div>
+                ${h.consecutiveDraws > 0 ? `<div>Consecutive: ${h.consecutiveDraws}</div>` : ''}
+                ${h.reason ? `<div style="font-size:11px;color:var(--text-muted);">${h.reason}</div>` : ''}
+              </div>
             </div>
+
+            ${h.rebal ? `<div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:4px;font-size:12px;color:var(--warning);">Rebalance: ${h.rebal}</div>` : ''}
           </div>
         `;
       }
@@ -3039,7 +3081,7 @@
         const db = await loadDecisionDBAsync();
         delete db.taxYears[ty];
         await saveDecisionDB(db);
-        renderTaxYears();
+        await renderTaxYears();
       } catch (error) {
         console.error('Error deleting tax year:', error);
         alert('Error deleting: ' + error.message);
@@ -3061,7 +3103,7 @@
 
       try {
         await saveTaxYearConfig(year, {});
-        renderTaxYears();
+        await renderTaxYears();
       } catch (error) {
         console.error('Save error:', error);
         alert('Error saving: ' + error.message);
