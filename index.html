@@ -1094,6 +1094,8 @@
       saveTaxYearConfig,
       getAllTaxYears,
       getAllTaxYearsAsync,
+      loadDecisionDBAsync,
+      saveDecisionDB,
       getHistory,
       getHistoryAsync,
       invalidateCache,
@@ -1973,8 +1975,8 @@
             BRL
           },
           taxInfo: {
-            annualTaxable: grossTaxable,
-            headroomToBRL: BRL - grossTaxable,
+            annualTaxable: annualTaxable,
+            headroomToBRL: BRL - annualTaxable,
             annualTax,
             monthlyNet: monthlyNet
           }
@@ -2921,56 +2923,110 @@
       return baseStatePension * cumulativeInflation;
     }
 
-    // Render tax years (async to ensure fresh data)
+    // Render tax years with inline editing (like PWA)
     async function renderTaxYears() {
       const container = document.getElementById('taxYearsList');
       container.innerHTML = '<p class="loading">Loading tax years...</p>';
 
       const taxYears = await getAllTaxYearsAsync();
       const decisionSettings = await getDecisionSettingsAsync();
-      console.log('renderTaxYears - decisionSettings:', JSON.stringify(decisionSettings));
-      console.log('renderTaxYears - taxYears:', JSON.stringify(taxYears));
-      const years = Object.keys(taxYears).sort().reverse();
+      const sortedYears = Object.keys(taxYears).sort();
 
-      if (years.length === 0) {
+      if (sortedYears.length === 0) {
         container.innerHTML = '<p class="loading">No tax years configured.</p>';
         return;
       }
 
       const statePensionYear = decisionSettings.statePensionYear || 12;
       const baseStatePension = decisionSettings.statePension || 0;
-      const yearsRemaining = Math.max(0, statePensionYear - years.length);
 
-      let html = '<table><thead><tr><th>Tax Year</th><th>PA</th><th>BRL</th><th>Other</th><th>State Pension</th><th>Actions</th></tr></thead><tbody>';
-
-      for (const year of years) {
-        const ty = taxYears[year];
-        const statePensionValue = calculateStatePensionForYear(taxYears, year, decisionSettings);
-        const statePensionDisplay = statePensionValue !== null
-          ? formatCurrency(statePensionValue)
-          : `<span style="color: #666; font-style: italic;">Not started</span>`;
+      let html = '';
+      sortedYears.forEach((ty, index) => {
+        const c = taxYears[ty];
+        // Calculate state pension for this year
+        let statePensionValue = 0;
+        if (index >= statePensionYear && baseStatePension > 0) {
+          let cumInf = 1;
+          for (let i = 0; i <= index; i++) {
+            cumInf *= 1 + (taxYears[sortedYears[i]]?.cpi || 0.04);
+          }
+          statePensionValue = Math.round(baseStatePension * cumInf);
+        }
+        const statePensionDisplay = index >= statePensionYear
+          ? '£' + statePensionValue.toLocaleString()
+          : '<span style="color:#666;font-style:italic;">Year ' + (statePensionYear - index) + '</span>';
 
         html += `
-          <tr>
-            <td><strong>${year}</strong></td>
-            <td>${formatCurrency(ty.pa || 12570)}</td>
-            <td>${formatCurrency(ty.brl || 50270)}</td>
-            <td>${formatCurrency(ty.other || 0)}</td>
-            <td>${statePensionDisplay}</td>
-            <td><button class="secondary" style="padding: 6px 12px; font-size: 12px;" onclick="editTaxYear('${year}')">Edit</button></td>
-          </tr>
+          <div class="card" style="background:var(--card-alt);margin-bottom:12px;padding:16px;" id="taxYear_${ty.replace('/', '_')}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <strong style="color:var(--primary);">${ty}</strong>
+              <button class="small secondary" onclick="deleteTaxYear('${ty}')">Delete</button>
+            </div>
+            <div class="grid grid-6" style="gap:12px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-muted);">PA</label>
+                <input type="number" value="${c.pa || 12570}" onchange="updateTaxYear('${ty}','pa',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-muted);">BRL</label>
+                <input type="number" value="${c.brl || 50270}" onchange="updateTaxYear('${ty}','brl',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-muted);">HRL</label>
+                <input type="number" value="${c.hrl || 125140}" onchange="updateTaxYear('${ty}','hrl',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-muted);">CPI %</label>
+                <input type="number" step="0.1" value="${((c.cpi || 0.04) * 100).toFixed(1)}" onchange="updateTaxYear('${ty}','cpi',this.value/100)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-muted);">Other £/yr</label>
+                <input type="number" value="${c.other || 0}" onchange="updateTaxYear('${ty}','other',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-muted);">State Pension</label>
+                <div style="padding:8px;color:var(--text-muted);font-size:13px;">${statePensionDisplay}</div>
+              </div>
+            </div>
+          </div>
         `;
-      }
+      });
 
-      html += '</tbody></table>';
-
-      // Add info about state pension settings
-      html += `<p style="margin-top: 16px; color: #888; font-size: 12px;">
-        State pension: ${formatCurrency(baseStatePension)} (today's money), starts in year ${statePensionYear} (${yearsRemaining} years remaining)
+      // Info about state pension settings
+      const yearsRemaining = Math.max(0, statePensionYear - sortedYears.length);
+      html += `<p style="margin-top:16px;color:#888;font-size:12px;">
+        State pension: £${baseStatePension.toLocaleString()} (today's money), starts in year ${statePensionYear} (${yearsRemaining > 0 ? yearsRemaining + ' years remaining' : 'already started'})
       </p>`;
 
       container.innerHTML = html;
     }
+
+    // Update tax year field (inline edit)
+    window.updateTaxYear = async function(ty, field, value) {
+      try {
+        const config = await getTaxYearConfigAsync(ty);
+        config[field] = parseFloat(value);
+        await saveTaxYearConfig(ty, config);
+      } catch (error) {
+        console.error('Error updating tax year:', error);
+        alert('Error saving: ' + error.message);
+      }
+    };
+
+    // Delete tax year
+    window.deleteTaxYear = async function(ty) {
+      if (!confirm('Delete tax year ' + ty + '?')) return;
+      try {
+        // Get all tax years, remove this one, save
+        const db = await loadDecisionDBAsync();
+        delete db.taxYears[ty];
+        await saveDecisionDB(db);
+        renderTaxYears();
+      } catch (error) {
+        console.error('Error deleting tax year:', error);
+        alert('Error deleting: ' + error.message);
+      }
+    };
 
     // Add tax year
     window.addTaxYear = async function() {
@@ -2990,72 +3046,6 @@
         renderTaxYears();
       } catch (error) {
         console.error('Save error:', error);
-        alert('Error saving: ' + error.message);
-      }
-    };
-
-    // Edit tax year
-    window.editTaxYear = async function(year) {
-      // Use async function to ensure fresh data from Firebase
-      const config = await getTaxYearConfigAsync(year);
-
-      // Create modal HTML
-      // Note: State pension is NOT editable per tax year - it's calculated from stress settings
-      const modal = document.createElement('div');
-      modal.id = 'taxYearModal';
-      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;';
-      modal.innerHTML = `
-        <div style="background:#1a1f2e;padding:24px;border-radius:8px;width:90%;max-width:400px;">
-          <h3 style="margin-top:0;color:#fff;">Edit Tax Year ${year}</h3>
-          <div class="field-group" style="margin-bottom:16px;">
-            <label>Personal Allowance</label>
-            <input type="number" id="editPA" value="${config.pa || 12570}" style="width:100%;">
-          </div>
-          <div class="field-group" style="margin-bottom:16px;">
-            <label>Basic Rate Limit</label>
-            <input type="number" id="editBRL" value="${config.brl || 50270}" style="width:100%;">
-          </div>
-          <div class="field-group" style="margin-bottom:16px;">
-            <label>Higher Rate Limit</label>
-            <input type="number" id="editHRL" value="${config.hrl || 125140}" style="width:100%;">
-          </div>
-          <div class="field-group" style="margin-bottom:16px;">
-            <label>CPI Inflation</label>
-            <input type="number" id="editCPI" value="${((config.cpi || 0.04) * 100).toFixed(1)}" step="0.1" style="width:100%;">
-            <small style="color:#888;">As percentage (e.g., 4.0 for 4%)</small>
-          </div>
-          <div class="field-group" style="margin-bottom:16px;">
-            <label>Other Income (annual)</label>
-            <input type="number" id="editOther" value="${config.other || 0}" style="width:100%;">
-          </div>
-          <p style="color:#888;font-size:12px;margin-top:16px;">
-            State pension is configured in Stress Settings and calculated dynamically based on CPI inflation.
-          </p>
-          <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
-            <button class="secondary" onclick="document.getElementById('taxYearModal').remove()">Cancel</button>
-            <button class="primary" onclick="saveTaxYearEdit('${year}')">Save</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    };
-
-    // Save tax year edit
-    window.saveTaxYearEdit = async function(year) {
-      const config = {
-        pa: parseFloat(document.getElementById('editPA').value) || 12570,
-        brl: parseFloat(document.getElementById('editBRL').value) || 50270,
-        hrl: parseFloat(document.getElementById('editHRL').value) || 125140,
-        cpi: (parseFloat(document.getElementById('editCPI').value) || 4.0) / 100,
-        other: parseFloat(document.getElementById('editOther').value) || 0
-      };
-
-      try {
-        await saveTaxYearConfig(year, config);
-        document.getElementById('taxYearModal').remove();
-        renderTaxYears();
-      } catch (error) {
-        console.error('Error saving tax year:', error);
         alert('Error saving: ' + error.message);
       }
     };

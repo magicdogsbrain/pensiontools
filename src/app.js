@@ -306,6 +306,8 @@ export {
   generateGlidepathSchedule,
 
   // Storage
+  loadDecisionDBAsync,
+  saveDecisionDB,
   getDecisionSettings,
   getDecisionSettingsAsync,
   saveDecisionSettings,
