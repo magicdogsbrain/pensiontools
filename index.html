@@ -1100,6 +1100,7 @@
       saveTaxYearConfig,
       getAllTaxYears,
       getHistory,
+      getHistoryAsync,
       getStressSettings,
       getStressSettingsAsync,
       saveStressSettings,
@@ -1612,20 +1613,324 @@
       });
     });
 
+    // ============================================================
+    // Decision Tool - PWA-aligned implementation
+    // ============================================================
+
+    // Get tax year from date string (e.g., "2026-05" -> "26/27")
+    function getTaxYearFromDate(dateStr) {
+      const [y, m] = dateStr.split('-').map(Number);
+      return m >= 4 ? (y % 100) + '/' + ((y + 1) % 100) : ((y - 1) % 100) + '/' + (y % 100);
+    }
+
+    // Get year number (0-based from 2026)
+    function getYearNum(dateStr) {
+      const [y, m] = dateStr.split('-').map(Number);
+      return Math.max(0, (m >= 4 ? y : y - 1) - 2026);
+    }
+
+    // Calculate glidepath minimum
+    function calcGlidepathMin(base, year, duration, cumInf, isGrowth) {
+      if (isGrowth) {
+        const depletion = Math.max(0, 1 - year / duration);
+        return base * cumInf * depletion;
+      }
+      return base * cumInf;
+    }
+
+    // Convert gross to net income using tax bands
+    function grossToNetIncome(gross, pa, brl) {
+      if (gross <= pa) return gross;
+      if (gross <= brl) return pa + (gross - pa) * 0.8;
+      return pa + (brl - pa) * 0.8 + (gross - brl) * 0.6;
+    }
+
+    // Calculate decision (PWA logic)
+    async function calcDecisionPWA(dateStr, equity, bond, cash) {
+      const settings = await getDecisionSettingsAsync();
+      const history = await getHistoryAsync();
+      const taxYear = getTaxYearFromDate(dateStr);
+      const taxYearConfig = await getTaxYearConfig(taxYear);
+      const yearNum = getYearNum(dateStr);
+      const [year, month] = dateStr.split('-').map(Number);
+
+      // Get tax config (use saved or defaults)
+      const PA = taxYearConfig?.pa || 12570;
+      const BRL = taxYearConfig?.brl || 50270;
+      const OTHER = taxYearConfig?.other || 0;
+      const STATE = taxYearConfig?.statePension || 0;
+      const CPI = taxYearConfig?.cpi || 0.025;
+
+      // Calculate cumulative inflation
+      let cumInf = 1;
+      for (let i = 0; i < yearNum; i++) {
+        cumInf *= 1 + CPI;
+      }
+
+      // Calculate glidepath minimums
+      const adjEquity = Math.round(calcGlidepathMin(settings.equityMin, yearNum, settings.duration, cumInf, true));
+      const adjBond = Math.round(calcGlidepathMin(settings.bondMin, yearNum, settings.duration, cumInf, true));
+      const adjCash = Math.round(calcGlidepathMin(settings.cashTarget, yearNum, settings.duration, cumInf, false));
+
+      const totalGrowth = equity + bond;
+      const minGrowth = adjEquity + adjBond;
+      let inProtection = false;
+      let consec = 0;
+
+      // Get prior history for protection mode calculation
+      const priorHistory = history.filter(h => h.date < dateStr);
+
+      // Count consecutive Cash draws from history
+      for (let i = priorHistory.length - 1; i >= 0; i--) {
+        if (priorHistory[i].source === 'Cash') consec++;
+        else break;
+      }
+
+      // Check if we're continuing protection from last month
+      if (priorHistory.length && priorHistory[priorHistory.length - 1].inProtection) {
+        inProtection = totalGrowth <= minGrowth + (settings.recoveryBuffer || 10000);
+      }
+
+      // Enter NEW protection if below minimum with consecutive cash draws
+      if (!inProtection && totalGrowth < minGrowth && consec + 1 >= (settings.consecutiveLimit || 3)) {
+        inProtection = true;
+      }
+
+      // Calculate SIPP and ISA draws
+      const target = settings.baseSalary * cumInf;
+      const other = OTHER + STATE;
+      const targetNet = grossToNetIncome(target, PA, BRL);
+
+      // SIPP draw: fill to target or BRL, whichever is lower
+      const maxGross = Math.min(target, BRL);
+      const stdSipp = Math.max(0, maxGross - other);
+
+      // ISA only needed if target exceeds BRL (to make up net shortfall)
+      const netAtMaxGross = grossToNetIncome(Math.min(other + stdSipp, BRL), PA, BRL);
+      const stdIsa = Math.max(0, targetNet - netAtMaxGross);
+
+      let sipp, isa, note;
+      let boostAmount = 0;
+
+      if (inProtection) {
+        sipp = (stdSipp / 12) * (1 - (settings.protectionFactor || 20) / 100);
+        isa = stdIsa / 12;
+        note = 'Protection';
+      } else {
+        sipp = stdSipp / 12;
+        isa = stdIsa / 12;
+        note = 'Standard';
+
+        // TAX BOOST: Catch up on protection shortfall
+        const taxYearStart = month >= 4 ? year : year - 1;
+        const thisTaxYearHistory = priorHistory.filter(h => {
+          const [hy, hm] = h.date.split('-').map(Number);
+          const hTaxYearStart = hm >= 4 ? hy : hy - 1;
+          return hTaxYearStart === taxYearStart;
+        });
+
+        let protectionShortfall = 0;
+        let annualSippSoFar = 0;
+
+        thisTaxYearHistory.forEach(h => {
+          annualSippSoFar += h.sipp || 0;
+          if (h.inProtection && h.stdSipp) {
+            protectionShortfall += (h.stdSipp - h.sipp);
+          }
+          if (h.boostAmount > 0) {
+            protectionShortfall -= h.boostAmount;
+          }
+        });
+
+        if (protectionShortfall > 0) {
+          let monthsRemaining = month >= 4 ? (16 - month) : (4 - month);
+          if (monthsRemaining < 1) monthsRemaining = 1;
+
+          const projectedAnnualTaxable = annualSippSoFar + sipp * monthsRemaining + other * monthsRemaining / 12;
+          const brlHeadroom = BRL - projectedAnnualTaxable;
+          const surplus = totalGrowth - minGrowth - (settings.recoveryBuffer || 10000);
+
+          if (brlHeadroom > 0 && surplus > 0) {
+            const maxBoostFromBRL = brlHeadroom / monthsRemaining;
+            const catchUpPerMonth = protectionShortfall / monthsRemaining;
+            const maxBoostFromSurplus = surplus / monthsRemaining;
+
+            boostAmount = Math.min(catchUpPerMonth, maxBoostFromBRL, maxBoostFromSurplus);
+
+            if (boostAmount > 50) {
+              sipp += boostAmount;
+              note = 'Tax Boost';
+            }
+          }
+        }
+      }
+
+      // Store stdSipp for future catch-up calculations
+      const stdSippMonthly = (BRL - other) / 12;
+
+      // Determine withdrawal source
+      let source, reason, dEquity = 0, dBond = 0, dCash = 0, warn = '';
+
+      if (!inProtection && totalGrowth >= minGrowth + sipp) {
+        source = 'Growth';
+        const pS = Math.max(0, equity - adjEquity);
+        const cS = Math.max(0, bond - adjBond);
+        const tot = pS + cS;
+        if (tot > 0) {
+          dEquity = sipp * pS / tot;
+          dBond = sipp * cS / tot;
+          reason = 'Healthy';
+        } else {
+          source = 'Cash';
+          dCash = sipp;
+          reason = 'At min';
+        }
+      } else {
+        source = 'Cash';
+        dCash = sipp;
+        reason = inProtection ? 'Protection' : 'Below min';
+        if (cash < sipp) warn = 'Cash low!';
+      }
+
+      // Rebalancing check
+      let rebal = '';
+      const pDev = equity - adjEquity;
+      const cDev = bond - adjBond;
+      if (pDev > 5000 && cDev < -5000) {
+        const mv = Math.floor(Math.min(pDev, -cDev) / 1000) * 1000;
+        if (mv >= 5000) rebal = `Move £${mv.toLocaleString()} Equity→Bond`;
+      } else if (cDev > 5000 && pDev < -5000) {
+        const mv = Math.floor(Math.min(cDev, -pDev) / 1000) * 1000;
+        if (mv >= 5000) rebal = `Move £${mv.toLocaleString()} Bond→Equity`;
+      }
+
+      // Cash replenishment suggestion
+      let cashReplenish = '';
+      const cashShortfall = adjCash - cash;
+      if (cashShortfall > 5000 && source === 'Growth' && !inProtection) {
+        const excess = totalGrowth - minGrowth - sipp;
+        if (excess > 10000) {
+          const repAmount = Math.floor(Math.min(cashShortfall * 0.3, excess * 0.5) / 1000) * 1000;
+          if (repAmount >= 5000) {
+            cashReplenish = `Replenish Cash: Move £${repAmount.toLocaleString()} from growth funds`;
+          }
+        }
+      }
+
+      // Build alerts array
+      const alerts = [];
+      if (warn) {
+        alerts.push({ message: warn, severity: 'danger', type: 'low-cash' });
+      }
+      if (boostAmount > 50) {
+        alerts.push({ message: `Tax Boost: +£${Math.round(boostAmount).toLocaleString()}/mo catch-up from protection shortfall`, severity: 'success', type: 'tax-boost' });
+      }
+      if (rebal) {
+        alerts.push({ message: rebal, severity: 'warning', type: 'rebalance' });
+      }
+      if (cashReplenish) {
+        alerts.push({ message: cashReplenish, severity: 'info', type: 'cash-replenish' });
+      }
+
+      // Calculate annual tax for display
+      const grossTaxable = (sipp + OTHER / 12 + STATE / 12) * 12;
+      const annualTax = grossTaxable <= PA ? 0 : (Math.min(grossTaxable, BRL) - PA) * 0.2;
+      const monthlyNet = (sipp + OTHER / 12 + STATE / 12) - annualTax / 12 + isa;
+
+      // Return object matching renderDecisionPanel expectations
+      return {
+        // Context
+        date: dateStr,
+        taxYear,
+        yearNumber: yearNum,
+
+        // Fund values
+        equity,
+        bond,
+        cash,
+        isa: 0, // ISA balance input not used in PWA logic
+
+        // Glidepath minimums (match expected field names)
+        adjEquityMin: adjEquity,
+        adjBondMin: adjBond,
+        adjCashTarget: adjCash,
+
+        // Tax thresholds
+        pa: PA,
+        brl: BRL,
+
+        // Income sources (monthly)
+        other: OTHER / 12,
+        statePension: STATE / 12,
+
+        // Recommended draws
+        sippDraw: sipp,
+        isaDraw: isa,
+        totalMonthlyNet: monthlyNet,
+
+        // Status flags
+        taxEfficient: !inProtection && boostAmount <= 50, // Standard mode is "tax efficient"
+        inProtection,
+        protectionReason: inProtection ? reason : null,
+        consecutiveCashDraws: consec,
+
+        // Tax boost
+        boostAmount: boostAmount > 50 ? boostAmount : 0,
+        boostEligible: boostAmount > 50,
+
+        // Withdrawal source
+        source,
+        drawFromEquity: dEquity,
+        drawFromBond: dBond,
+        drawFromCash: dCash,
+
+        // Rebalancing
+        rebalanceNeeded: rebal !== '',
+        rebalanceActions: rebal ? [rebal] : [],
+
+        // Alerts
+        alerts,
+
+        // Calculation details for debug
+        calculationDetails: {
+          mode: note,
+          reason: `${reason} | ${note}`,
+          totalGrowth,
+          minGrowth,
+          consec,
+          stdSipp: stdSippMonthly,
+          taxInfo: {
+            annualTaxable: grossTaxable,
+            headroomToBRL: BRL - grossTaxable,
+            annualTax
+          }
+        }
+      };
+    }
+
     // Decision form handler
-    window.handleDecisionSubmit = function(event) {
+    window.handleDecisionSubmit = async function(event) {
       event.preventDefault();
 
-      const params = {
-        date: document.getElementById('entryMonth').value,
-        equity: parseFloat(document.getElementById('entryEquity').value) || 0,
-        bond: parseFloat(document.getElementById('entryBond').value) || 0,
-        cash: parseFloat(document.getElementById('entryCash').value) || 0,
-        isaBalance: parseFloat(document.getElementById('entryISA').value) || 0
-      };
+      const dateStr = document.getElementById('entryMonth').value;
+      const equity = parseFloat(document.getElementById('entryEquity').value) || 0;
+      const bond = parseFloat(document.getElementById('entryBond').value) || 0;
+      const cash = parseFloat(document.getElementById('entryCash').value) || 0;
+
+      // Validate
+      const missing = [];
+      if (!dateStr) missing.push('Month');
+      if (!equity && equity !== 0) missing.push('Equity Fund');
+      if (!bond && bond !== 0) missing.push('Bond Balance');
+      if (!cash && cash !== 0) missing.push('Cash Balance');
+
+      if (missing.length > 0) {
+        alert('Please fill in the following fields:\n\n• ' + missing.join('\n• '));
+        return;
+      }
 
       try {
-        currentDecision = runDecision(params);
+        currentDecision = await calcDecisionPWA(dateStr, equity, bond, cash);
         const container = document.getElementById('decisionOutput');
         renderDecisionPanel(currentDecision, container);
         document.getElementById('saveBtn').disabled = false;
@@ -1651,6 +1956,7 @@
         await saveDecision(currentDecision);
         alert('Decision saved to history');
         document.getElementById('saveBtn').disabled = true;
+        renderHistory();  // Refresh history display
       } catch (error) {
         console.error('Save error:', error);
         alert('Error saving: ' + error.message);
