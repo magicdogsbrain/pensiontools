@@ -353,6 +353,30 @@
       max-height: 400px;
     }
 
+    /* Tax years table inputs */
+    .tax-years-table input[type="number"] {
+      padding: 8px 12px;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      width: 100%;
+    }
+    .tax-years-table input[type="number"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .tax-years-table .input-with-unit {
+      width: 110px;
+    }
+    .tax-years-table .input-with-unit input {
+      width: 80px;
+    }
+    .tax-years-table .cpi-input {
+      width: 70px;
+    }
+
     /* Data table */
     .data-table {
       border-collapse: collapse;
@@ -3000,9 +3024,6 @@
       const statePensionYear = decisionSettings.statePensionYear || 12;
       const baseStatePension = decisionSettings.statePension || 0;
 
-      // Common input style - text-align left so numbers align properly
-      const inputStyle = 'background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;width:90px;font-size:13px;text-align:left;';
-
       let html = '<table class="tax-years-table" style="width:100%;border-collapse:collapse;">';
       html += '<thead><tr style="border-bottom:1px solid var(--border);">';
       html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">Year</th>';
@@ -3032,16 +3053,25 @@
         html += `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:10px 8px;"><strong style="color:var(--primary);">${ty}</strong></td>
           <td style="padding:10px 8px;">
-            <input type="number" value="${c.pa || 12570}" onchange="updateTaxYear('${ty}','pa',this.value)" style="${inputStyle}">
+            <div class="input-with-unit">
+              <span class="unit">£</span>
+              <input type="number" value="${c.pa || 12570}" onchange="updateTaxYear('${ty}','pa',this.value)">
+            </div>
           </td>
           <td style="padding:10px 8px;">
-            <input type="number" value="${c.brl || 50270}" onchange="updateTaxYear('${ty}','brl',this.value)" style="${inputStyle}">
+            <div class="input-with-unit">
+              <span class="unit">£</span>
+              <input type="number" value="${c.brl || 50270}" onchange="updateTaxYear('${ty}','brl',this.value)">
+            </div>
           </td>
           <td style="padding:10px 8px;">
-            <input type="number" step="0.1" value="${((c.cpi || 0.04) * 100).toFixed(1)}" onchange="updateTaxYear('${ty}','cpi',this.value/100)" style="${inputStyle}width:60px;">
+            <input type="number" step="0.1" value="${((c.cpi || 0.04) * 100).toFixed(1)}" onchange="updateTaxYear('${ty}','cpi',this.value/100)" class="cpi-input" style="width:60px;">
           </td>
           <td style="padding:10px 8px;">
-            <input type="number" value="${c.other || 0}" onchange="updateTaxYear('${ty}','other',this.value)" style="${inputStyle}">
+            <div class="input-with-unit">
+              <span class="unit">£</span>
+              <input type="number" value="${c.other || 0}" onchange="updateTaxYear('${ty}','other',this.value)">
+            </div>
           </td>
           <td style="padding:10px 8px;color:var(--text);">${statePensionDisplay}</td>
           <td style="padding:10px 8px;">
@@ -3059,6 +3089,9 @@
       </p>`;
 
       container.innerHTML = html;
+
+      // Initialize number formatting for the new inputs
+      initFormattedDisplays();
     }
 
     // Update tax year field (inline edit)
