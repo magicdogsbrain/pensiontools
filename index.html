@@ -1344,7 +1344,7 @@
      * @param {object} user - Firebase user object
      * @param {string} initialTab - Which tab to show ('decision' or 'stress')
      */
-    function showMainApp(user, initialTab = 'decision') {
+    async function showMainApp(user, initialTab = 'decision') {
       hideAuthScreen();
       hideSetupWizard();
       document.getElementById('mainApp').classList.remove('hidden');
@@ -1353,8 +1353,8 @@
       document.getElementById('userEmail').textContent = user.email;
 
       // Load initial data
-      renderHistory();
-      renderTaxYears();
+      await renderHistory();
+      await renderTaxYears();
 
       // ALWAYS pre-fill ALL input fields from stored settings on app load
       initializeAllInputsFromSettings();
@@ -1606,7 +1606,7 @@
 
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         // Update tab buttons
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
@@ -1615,9 +1615,9 @@
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById(`${tab.dataset.tab}-content`).classList.add('active');
 
-        // Load content if needed
-        if (tab.dataset.tab === 'history') renderHistory();
-        if (tab.dataset.tab === 'taxyears') renderTaxYears();
+        // Load content if needed (async)
+        if (tab.dataset.tab === 'history') await renderHistory();
+        if (tab.dataset.tab === 'taxyears') await renderTaxYears();
         if (tab.dataset.tab === 'stress') loadStressSettings();
       });
     });
@@ -2046,7 +2046,7 @@
         await saveDecision(currentDecision);
         alert('Decision saved to history');
         document.getElementById('saveBtn').disabled = true;
-        renderHistory();  // Refresh history display
+        await renderHistory();  // Refresh history display
       } catch (error) {
         console.error('Save error:', error);
         alert('Error saving: ' + error.message);
@@ -2859,10 +2859,12 @@
       }
     };
 
-    // Render history
-    function renderHistory() {
-      const history = getHistory({ sortDesc: true, limit: 50 });
+    // Render history (async to ensure fresh data from Firebase)
+    async function renderHistory() {
       const container = document.getElementById('historyList');
+      container.innerHTML = '<p class="loading">Loading history...</p>';
+
+      const history = await getHistoryAsync({ sortDesc: true, limit: 50 });
 
       if (history.length === 0) {
         container.innerHTML = '<p class="loading">No history entries yet.</p>';
@@ -2904,7 +2906,7 @@
 
       try {
         await deleteHistoryRecord(date);
-        renderHistory();
+        await renderHistory();
       } catch (error) {
         console.error('Delete error:', error);
         alert('Error deleting: ' + error.message);
@@ -2956,17 +2958,17 @@
       const statePensionYear = decisionSettings.statePensionYear || 12;
       const baseStatePension = decisionSettings.statePension || 0;
 
-      // Common input style
-      const inputStyle = 'background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;width:90px;font-size:13px;';
+      // Common input style - text-align left so numbers align properly
+      const inputStyle = 'background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;width:90px;font-size:13px;text-align:left;';
 
       let html = '<table class="tax-years-table" style="width:100%;border-collapse:collapse;">';
       html += '<thead><tr style="border-bottom:1px solid var(--border);">';
       html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">Year</th>';
-      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">PA</th>';
-      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">BRL</th>';
-      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">CPI %</th>';
-      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">Other</th>';
-      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">State Pension</th>';
+      html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">PA</th>';
+      html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">BRL</th>';
+      html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">CPI %</th>';
+      html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">Other</th>';
+      html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">State Pension</th>';
       html += '<th style="padding:8px;"></th>';
       html += '</tr></thead><tbody>';
 
@@ -2987,20 +2989,20 @@
 
         html += `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:10px 8px;"><strong style="color:var(--primary);">${ty}</strong></td>
-          <td style="padding:10px 8px;text-align:right;">
+          <td style="padding:10px 8px;">
             <input type="number" value="${c.pa || 12570}" onchange="updateTaxYear('${ty}','pa',this.value)" style="${inputStyle}">
           </td>
-          <td style="padding:10px 8px;text-align:right;">
+          <td style="padding:10px 8px;">
             <input type="number" value="${c.brl || 50270}" onchange="updateTaxYear('${ty}','brl',this.value)" style="${inputStyle}">
           </td>
-          <td style="padding:10px 8px;text-align:right;">
+          <td style="padding:10px 8px;">
             <input type="number" step="0.1" value="${((c.cpi || 0.04) * 100).toFixed(1)}" onchange="updateTaxYear('${ty}','cpi',this.value/100)" style="${inputStyle}width:60px;">
           </td>
-          <td style="padding:10px 8px;text-align:right;">
+          <td style="padding:10px 8px;">
             <input type="number" value="${c.other || 0}" onchange="updateTaxYear('${ty}','other',this.value)" style="${inputStyle}">
           </td>
-          <td style="padding:10px 8px;text-align:right;color:var(--text);">${statePensionDisplay}</td>
-          <td style="padding:10px 8px;text-align:right;">
+          <td style="padding:10px 8px;color:var(--text);">${statePensionDisplay}</td>
+          <td style="padding:10px 8px;">
             <button class="small secondary" onclick="deleteTaxYear('${ty}')" style="padding:4px 8px;font-size:11px;">Delete</button>
           </td>
         </tr>`;
