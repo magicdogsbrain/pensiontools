@@ -1172,21 +1172,13 @@
     /**
      * Format a number with thousand separators
      * @param {number|string} value - The value to format
-     * @returns {string} Formatted string with commas
+     * @returns {string} Formatted string with spaces (SI style)
      */
-    function formatWithCommas(value) {
+    function formatWithSpaces(value) {
       const num = parseFloat(value);
       if (isNaN(num)) return '';
-      return num.toLocaleString('en-GB', { maximumFractionDigits: 2 });
-    }
-
-    /**
-     * Remove thousand separators and return raw number
-     * @param {string} value - The formatted string
-     * @returns {string} Raw number string
-     */
-    function removeCommas(value) {
-      return value.replace(/,/g, '');
+      // Use narrow non-breaking space (U+202F) for SI-style thousands separator
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u202F');
     }
 
     /**
@@ -1255,7 +1247,7 @@
         function updateOverlay() {
           const val = parseFloat(input.value);
           if (!isNaN(val) && val >= 1000) {
-            overlay.textContent = formatWithCommas(val);
+            overlay.textContent = formatWithSpaces(val);
             overlay.style.display = 'block';
             input.style.color = 'transparent';
           } else {
