@@ -8,7 +8,8 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -33,6 +34,17 @@ export function initAuthStateListener() {
     console.warn('Firebase not configured - auth disabled');
     return;
   }
+
+  // Check for redirect result on page load
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result?.user) {
+        console.log('Google sign-in redirect completed');
+      }
+    })
+    .catch((error) => {
+      console.error('Redirect sign-in error:', error);
+    });
 
   onAuthStateChanged(auth, (user) => {
     currentUser = user;
@@ -112,14 +124,15 @@ export async function signInWithEmail(email, password) {
 
 /**
  * Sign in with Google
- * @returns {Promise<object>} User credential
+ * Uses redirect method to avoid cross-origin popup issues on GitHub Pages
+ * @returns {Promise<void>}
  */
 export async function signInWithGoogle() {
   if (!isFirebaseConfigured() || !auth) {
     throw new Error('Firebase not configured');
   }
 
-  return signInWithPopup(auth, googleProvider);
+  return signInWithRedirect(auth, googleProvider);
 }
 
 /**
