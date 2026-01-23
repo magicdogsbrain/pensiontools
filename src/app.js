@@ -298,12 +298,15 @@ export {
 
   // Storage
   getDecisionSettings,
+  getDecisionSettingsAsync,
   saveDecisionSettings,
   getTaxYearConfig,
   saveTaxYearConfig,
   getAllTaxYears,
   getHistory,
+  getHistoryAsync,
   getStressSettings,
+  getStressSettingsAsync,
   saveStressSettings,
 
   // Utils

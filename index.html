@@ -380,6 +380,72 @@
       display: none !important;
     }
 
+    /* Sub-tabs for stress tester */
+    .sub-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--card);
+      padding: 4px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .sub-tab {
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .sub-tab:hover {
+      color: var(--text);
+      background: var(--card-alt);
+    }
+
+    .sub-tab.active {
+      background: rgba(126, 184, 218, 0.15);
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* Input warning */
+    .input-warning {
+      background: rgba(240, 198, 116, 0.1);
+      border: 1px solid rgba(240, 198, 116, 0.3);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--warning);
+    }
+
+    .input-warning.hidden {
+      display: none;
+    }
+
+    /* Stress subtab content */
+    .stress-subtab {
+      display: block;
+    }
+
+    .stress-subtab.hidden {
+      display: none;
+    }
+
+    /* Decision subtab content */
+    .decision-subtab {
+      display: block;
+    }
+
+    .decision-subtab.hidden {
+      display: none;
+    }
+
     /* Loading */
     .loading {
       display: flex;
@@ -461,63 +527,127 @@
 
       <!-- Decision Tool Tab -->
       <div id="decision-content" class="tab-content active">
-        <div class="grid-2">
-          <!-- Input Panel -->
-          <div class="card">
-            <h2>Monthly Entry</h2>
-            <form id="decisionForm" onsubmit="handleDecisionSubmit(event)">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label>Month</label>
-                  <input type="month" id="entryMonth" required>
-                </div>
-              </div>
+        <!-- Decision Tool Sub-tabs -->
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-decisiontab="entry">Monthly Entry</button>
+          <button class="sub-tab" data-decisiontab="decisionsettings">Settings</button>
+        </div>
 
-              <h3 style="margin-top: 24px;">Fund Values</h3>
-              <div class="form-grid">
-                <div class="form-group">
-                  <label>Equity Fund</label>
-                  <div class="input-with-unit">
-                    <span class="unit">£</span>
-                    <input type="number" id="entryEquity" value="250000" required>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Bond Fund</label>
-                  <div class="input-with-unit">
-                    <span class="unit">£</span>
-                    <input type="number" id="entryBond" value="200000" required>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Cash Fund</label>
-                  <div class="input-with-unit">
-                    <span class="unit">£</span>
-                    <input type="number" id="entryCash" value="50000" required>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>ISA Balance</label>
-                  <div class="input-with-unit">
-                    <span class="unit">£</span>
-                    <input type="number" id="entryISA" value="0">
-                  </div>
-                </div>
-              </div>
-
-              <div style="margin-top: 24px; display: flex; gap: 12px;">
-                <button type="submit">Calculate</button>
-                <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
-              </div>
-            </form>
-          </div>
-
-          <!-- Output Panel -->
-          <div id="decisionOutput">
+        <!-- Entry Sub-tab -->
+        <div id="decision-entry" class="decision-subtab">
+          <div class="grid-2">
+            <!-- Input Panel -->
             <div class="card">
-              <div class="loading">
-                <p>Enter your fund values and click Calculate to see your recommendation.</p>
+              <h2>Monthly Entry</h2>
+              <form id="decisionForm" onsubmit="handleDecisionSubmit(event)">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Month</label>
+                    <input type="month" id="entryMonth" required>
+                  </div>
+                </div>
+
+                <h3 style="margin-top: 24px;">Fund Values</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Equity Fund</label>
+                    <div class="input-with-unit">
+                      <span class="unit">£</span>
+                      <input type="number" id="entryEquity" value="250000" required>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Bond Fund</label>
+                    <div class="input-with-unit">
+                      <span class="unit">£</span>
+                      <input type="number" id="entryBond" value="200000" required>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Cash Fund</label>
+                    <div class="input-with-unit">
+                      <span class="unit">£</span>
+                      <input type="number" id="entryCash" value="50000" required>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>ISA Balance</label>
+                    <div class="input-with-unit">
+                      <span class="unit">£</span>
+                      <input type="number" id="entryISA" value="0">
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top: 24px; display: flex; gap: 12px;">
+                  <button type="submit">Calculate</button>
+                  <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Output Panel -->
+            <div id="decisionOutput">
+              <div class="card">
+                <div class="loading">
+                  <p>Enter your fund values and click Calculate to see your recommendation.</p>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Decision Settings Sub-tab -->
+        <div id="decision-decisionsettings" class="decision-subtab hidden">
+          <div class="card">
+            <h2>Decision Tool Settings</h2>
+
+            <h3 style="margin-top: 16px;">Fund Minimums (Year 0 baseline)</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equity Minimum (£)</label>
+                <input type="number" id="dsEquityMin" value="250000">
+              </div>
+              <div class="form-group">
+                <label>Bond Minimum (£)</label>
+                <input type="number" id="dsBondMin" value="200000">
+              </div>
+              <div class="form-group">
+                <label>Cash Target (£)</label>
+                <input type="number" id="dsCashTarget" value="50000">
+              </div>
+              <div class="form-group">
+                <label>Depletion Duration (years)</label>
+                <input type="number" id="dsDuration" value="35">
+              </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">Income Settings</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Target Gross Salary (£/yr)</label>
+                <input type="number" id="dsBaseSalary" value="30000">
+              </div>
+              <div class="form-group">
+                <label>Protection Reduction (%)</label>
+                <input type="number" id="dsProtectionFactor" value="20">
+              </div>
+              <div class="form-group">
+                <label>Recovery Buffer (£)</label>
+                <input type="number" id="dsRecoveryBuffer" value="15000">
+              </div>
+              <div class="form-group">
+                <label>Cash Draws Before Protection</label>
+                <input type="number" id="dsConsecutiveLimit" value="3">
+              </div>
+            </div>
+            <div class="alert alert-info" style="margin-top: 12px;">
+              <strong>Protection Mode:</strong> Triggers after consecutive cash draws. Reduces withdrawal by the protection factor until growth funds recover above minimums + recovery buffer.
+            </div>
+
+            <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+              <button onclick="saveDecisionSettingsUI()">Save Settings</button>
+              <button class="secondary" onclick="resetDecisionSettingsUI()">Reset to Defaults</button>
             </div>
           </div>
         </div>
@@ -525,43 +655,304 @@
 
       <!-- Stress Tester Tab -->
       <div id="stress-content" class="tab-content">
-        <div class="card">
-          <h2>Monte Carlo Simulation</h2>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Starting Equity</label>
-              <div class="input-with-unit">
-                <span class="unit">£</span>
-                <input type="number" id="mcEquity" value="250000">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Starting Bond</label>
-              <div class="input-with-unit">
-                <span class="unit">£</span>
-                <input type="number" id="mcBond" value="200000">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Starting Cash</label>
-              <div class="input-with-unit">
-                <span class="unit">£</span>
-                <input type="number" id="mcCash" value="50000">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Simulation Years</label>
-              <input type="number" id="mcYears" value="35">
-            </div>
-          </div>
-          <div style="margin-top: 20px; display: flex; gap: 12px;">
-            <button onclick="runMonteCarloUI()">Run Monte Carlo (1000 runs)</button>
-            <button class="secondary" onclick="runHistoricalUI()">Run Historical</button>
-            <button class="secondary" onclick="runScenariosUI()">Run Scenarios</button>
-          </div>
+        <!-- Stress Tester Sub-tabs -->
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-stresstab="montecarlo">Monte Carlo</button>
+          <button class="sub-tab" data-stresstab="historical">Historical</button>
+          <button class="sub-tab" data-stresstab="scenarios">Scenarios</button>
+          <button class="sub-tab" data-stresstab="drawdown">Drawdown</button>
+          <button class="sub-tab" data-stresstab="glidepath">Glidepath</button>
+          <button class="sub-tab" data-stresstab="stresssettings">Settings</button>
         </div>
 
-        <div id="stressResults"></div>
+        <!-- Monte Carlo Sub-tab -->
+        <div id="stress-montecarlo" class="stress-subtab">
+          <div class="card">
+            <h2>Monte Carlo Simulation</h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">1,000 scenarios using randomly sampled historical returns (1928-2024).</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Starting Equity</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="mcEquity" value="250000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Starting Bond</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="mcBond" value="200000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Starting Cash</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="mcCash" value="50000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Simulation Years</label>
+                <input type="number" id="mcYears" value="35">
+              </div>
+            </div>
+            <div id="mcInputWarning" class="input-warning hidden"></div>
+            <div style="margin-top: 20px;">
+              <button onclick="runMonteCarloUI()">Run Monte Carlo (1000 runs)</button>
+            </div>
+          </div>
+          <div id="mcResults"></div>
+        </div>
+
+        <!-- Historical Sub-tab -->
+        <div id="stress-historical" class="stress-subtab hidden">
+          <div class="card">
+            <h2>Historical Sequence Analysis</h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Tests your strategy against every possible starting year from 1928-2024.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Starting Equity</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="histEquity" value="250000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Starting Bond</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="histBond" value="200000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Starting Cash</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="histCash" value="50000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Simulation Years</label>
+                <input type="number" id="histYears" value="35">
+              </div>
+            </div>
+            <div id="histInputWarning" class="input-warning hidden"></div>
+            <div style="margin-top: 20px;">
+              <button onclick="runHistoricalUI()">Run Historical Analysis</button>
+            </div>
+          </div>
+          <div id="histResults"></div>
+        </div>
+
+        <!-- Scenarios Sub-tab -->
+        <div id="stress-scenarios" class="stress-subtab hidden">
+          <div class="card">
+            <h2>Stress Scenarios</h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Tests against specific historical crises: Great Depression, 1970s Stagflation, 2008 GFC, etc.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Starting Equity</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="scenEquity" value="250000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Starting Bond</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="scenBond" value="200000">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Starting Cash</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="scenCash" value="50000">
+                </div>
+              </div>
+            </div>
+            <div id="scenInputWarning" class="input-warning hidden"></div>
+            <div style="margin-top: 20px;">
+              <button onclick="runScenariosUI()">Run All Scenarios</button>
+            </div>
+          </div>
+          <div id="scenResults"></div>
+        </div>
+
+        <!-- Drawdown Schedule Sub-tab -->
+        <div id="stress-drawdown" class="stress-subtab hidden">
+          <div class="card">
+            <h2>SIPP Drawdown Schedule</h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Projected annual SIPP withdrawals based on your settings.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Assumed Inflation (%)</label>
+                <input type="number" id="ddInflation" value="2.5" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>Duration (years)</label>
+                <input type="number" id="ddDuration" value="35">
+              </div>
+            </div>
+            <div style="margin-top: 20px;">
+              <button onclick="showDrawdownScheduleUI()">Show Schedule</button>
+            </div>
+          </div>
+          <div id="drawdownResults"></div>
+        </div>
+
+        <!-- Glidepath Sub-tab -->
+        <div id="stress-glidepath" class="stress-subtab hidden">
+          <div class="card">
+            <h2>Glidepath Visualization</h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Shows how fund minimums decline over time with inflation adjustment.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Assumed Inflation (%)</label>
+                <input type="number" id="gpInflation" value="2.5" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>Duration (years)</label>
+                <input type="number" id="gpDuration" value="35">
+              </div>
+            </div>
+            <div style="margin-top: 20px;">
+              <button onclick="showGlidepathUI()">Show Glidepath</button>
+            </div>
+          </div>
+          <div id="glidepathResults"></div>
+        </div>
+
+        <!-- Stress Settings Sub-tab -->
+        <div id="stress-stresssettings" class="stress-subtab hidden">
+          <div class="card">
+            <h2>Stress Tester Settings</h2>
+
+            <h3 style="margin-top: 16px;">Income Target</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Target Gross Salary (£/yr)</label>
+                <input type="number" id="ssBaseSalary" value="30000">
+              </div>
+            </div>
+            <div class="alert alert-info" style="margin-top: 12px;">
+              <strong>Target:</strong> The total yearly income you want from all sources. This combines your SIPP withdrawals, other pensions, and state pension.
+            </div>
+
+            <h3 style="margin-top: 24px;">Fund Minimums (Year 0, real terms)</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equity Minimum (£)</label>
+                <input type="number" id="ssEquityMin" value="250000">
+              </div>
+              <div class="form-group">
+                <label>Bond Minimum (£)</label>
+                <input type="number" id="ssBondMin" value="200000">
+              </div>
+              <div class="form-group">
+                <label>Cash Target (£)</label>
+                <input type="number" id="ssCashTarget" value="50000">
+              </div>
+              <div class="form-group">
+                <label>Duration (years)</label>
+                <input type="number" id="ssDuration" value="35">
+              </div>
+            </div>
+            <div class="alert alert-info" style="margin-top: 12px;">
+              <strong>Glidepath:</strong> Equity & Bond minimums inflate with CPI but deplete linearly to £0. Cash inflates only (maintains real value).
+            </div>
+
+            <h3 style="margin-top: 24px;">Tax Thresholds (Year 0)</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Personal Allowance (£)</label>
+                <input type="number" id="ssPA" value="12570">
+              </div>
+              <div class="form-group">
+                <label>Basic Rate Limit (£)</label>
+                <input type="number" id="ssBRL" value="50270">
+              </div>
+              <div class="form-group">
+                <label>Higher Rate Limit (£)</label>
+                <input type="number" id="ssHRL" value="125140">
+              </div>
+              <div class="form-group">
+                <label>Tax Threshold Mode</label>
+                <select id="ssTaxMode">
+                  <option value="inflates">Standard (rise with inflation)</option>
+                  <option value="frozen">Frozen (stay at current levels)</option>
+                </select>
+              </div>
+            </div>
+            <div class="alert alert-warning" style="margin-top: 12px;">
+              <strong>SIPP Calculation:</strong> SIPP Draw = Target Income - Other Pensions - State Pension<br>
+              (But never more than the Basic Rate Limit, to avoid 40% tax)
+            </div>
+
+            <h3 style="margin-top: 24px;">Other Pensions (Year 0)</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Other Income/Pension (£/yr)</label>
+                <input type="number" id="ssOther" value="0">
+              </div>
+              <div class="form-group">
+                <label>State Pension (£/yr)</label>
+                <input type="number" id="ssStatePension" value="12000">
+              </div>
+              <div class="form-group">
+                <label>State Pension Start Year</label>
+                <input type="number" id="ssStatePensionYear" value="12">
+              </div>
+            </div>
+            <div class="alert alert-info" style="margin-top: 12px;">
+              <strong>Pension Inflation:</strong><br>
+              • Other Income/Pension: Follows CPI, capped at 4% per year<br>
+              • State Pension: Follows CPI (triple-lock proxy)
+            </div>
+
+            <h3 style="margin-top: 24px;">Protection Rules</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Cash Draws Before Protection</label>
+                <input type="number" id="ssConsecutiveLimit" value="3">
+              </div>
+              <div class="form-group">
+                <label>Protection Multiplier</label>
+                <input type="number" id="ssProtectionMult" value="0.8" step="0.05">
+              </div>
+              <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                  <input type="checkbox" id="ssDisableProtection" style="width: auto; margin-right: 8px;">
+                  <span style="text-transform: none; font-size: 13px;">Disable Protection Mode</span>
+                </label>
+              </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">Break Glass HODL (Emergency Reserve)</h3>
+            <div class="form-grid">
+              <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                  <input type="checkbox" id="ssHodlEnabled" style="width: auto; margin-right: 8px;">
+                  <span style="text-transform: none; font-size: 13px;">Enable HODL Reserve</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label>HODL Value (£)</label>
+                <input type="number" id="ssHodlValue" value="25000">
+              </div>
+            </div>
+            <div class="alert alert-info" style="margin-top: 12px;">
+              <strong>Break Glass Reserve:</strong> Emergency fund only accessed when main strategy would otherwise fail.
+            </div>
+
+            <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+              <button onclick="saveStressSettingsUI()">Save Settings</button>
+              <button class="secondary" onclick="resetStressSettingsUI()">Reset to Defaults</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- History Tab -->
@@ -604,19 +995,28 @@
       runAllScenarios,
       analyzeResults,
       getDecisionSettings,
+      getDecisionSettingsAsync,
       saveDecisionSettings,
       getTaxYearConfig,
       saveTaxYearConfig,
       getAllTaxYears,
       getHistory,
       getStressSettings,
+      getStressSettingsAsync,
       saveStressSettings,
       formatCurrency,
       formatPercent,
       getCurrentMonth,
       renderDecisionPanel,
-      getDecisionPanelStyles
+      getDecisionPanelStyles,
+      getDrawdownProjection,
+      getGlidepathProjection
     } from './src/app.js';
+
+    // Import additional services
+    import { generateDrawdownSchedule } from './src/services/DrawdownService.js';
+    import { generateGlidepathSchedule } from './src/services/GlidepathService.js';
+    import { resetStressSettings } from './src/storage/StressRepository.js';
 
     // Import auth screen
     import {
@@ -766,6 +1166,44 @@
         // Load content if needed
         if (tab.dataset.tab === 'history') renderHistory();
         if (tab.dataset.tab === 'taxyears') renderTaxYears();
+        if (tab.dataset.tab === 'stress') loadStressSettings();
+      });
+    });
+
+    // Stress tester sub-tab switching
+    document.querySelectorAll('.sub-tab[data-stresstab]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Update sub-tab buttons
+        document.querySelectorAll('.sub-tab[data-stresstab]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Update sub-tab content
+        document.querySelectorAll('.stress-subtab').forEach(c => c.classList.add('hidden'));
+        document.getElementById(`stress-${tab.dataset.stresstab}`).classList.remove('hidden');
+
+        // Load settings when switching to settings tab
+        if (tab.dataset.stresstab === 'stresssettings') loadStressSettings();
+
+        // Pre-fill inputs when switching to test tabs
+        if (['montecarlo', 'historical', 'scenarios'].includes(tab.dataset.stresstab)) {
+          prefillStressInputs(tab.dataset.stresstab);
+        }
+      });
+    });
+
+    // Decision tool sub-tab switching
+    document.querySelectorAll('.sub-tab[data-decisiontab]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Update sub-tab buttons
+        document.querySelectorAll('.sub-tab[data-decisiontab]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Update sub-tab content
+        document.querySelectorAll('.decision-subtab').forEach(c => c.classList.add('hidden'));
+        document.getElementById(`decision-${tab.dataset.decisiontab}`).classList.remove('hidden');
+
+        // Load settings when switching to settings tab
+        if (tab.dataset.decisiontab === 'decisionsettings') loadDecisionSettings();
       });
     });
 
@@ -814,6 +1252,23 @@
       }
     };
 
+    // Pre-fill stress test inputs from settings
+    async function prefillStressInputs(prefix) {
+      const s = await getStressSettingsAsync();
+      const prefixMap = { montecarlo: 'mc', historical: 'hist', scenarios: 'scen' };
+      const p = prefixMap[prefix] || prefix;
+
+      const equityEl = document.getElementById(p + 'Equity');
+      const bondEl = document.getElementById(p + 'Bond');
+      const cashEl = document.getElementById(p + 'Cash');
+      const yearsEl = document.getElementById(p + 'Years');
+
+      if (equityEl) equityEl.value = s.equityMin;
+      if (bondEl) bondEl.value = s.bondMin;
+      if (cashEl) cashEl.value = s.cashTarget;
+      if (yearsEl) yearsEl.value = s.duration;
+    }
+
     // Monte Carlo simulation
     window.runMonteCarloUI = function() {
       const config = {
@@ -823,15 +1278,15 @@
         years: parseInt(document.getElementById('mcYears').value) || 35
       };
 
-      document.getElementById('stressResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running simulation...</div>';
+      document.getElementById('mcResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running simulation...</div>';
 
       setTimeout(() => {
         try {
           const { results, stats } = runMonteCarloSimulation(config);
-          renderStressResults(stats, 'Monte Carlo (1000 runs)');
+          renderStressResults(stats, 'Monte Carlo (1000 runs)', 'mcResults');
         } catch (error) {
           console.error('Simulation error:', error);
-          document.getElementById('stressResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          document.getElementById('mcResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         }
       }, 50);
     };
@@ -839,21 +1294,21 @@
     // Historical simulation
     window.runHistoricalUI = function() {
       const config = {
-        equityStart: parseFloat(document.getElementById('mcEquity').value) || 250000,
-        bondStart: parseFloat(document.getElementById('mcBond').value) || 200000,
-        cashStart: parseFloat(document.getElementById('mcCash').value) || 50000,
-        years: parseInt(document.getElementById('mcYears').value) || 35
+        equityStart: parseFloat(document.getElementById('histEquity').value) || 250000,
+        bondStart: parseFloat(document.getElementById('histBond').value) || 200000,
+        cashStart: parseFloat(document.getElementById('histCash').value) || 50000,
+        years: parseInt(document.getElementById('histYears').value) || 35
       };
 
-      document.getElementById('stressResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running simulation...</div>';
+      document.getElementById('histResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running simulation...</div>';
 
       setTimeout(() => {
         try {
           const { results, stats } = runHistoricalSimulation(config);
-          renderStressResults(stats, 'Historical Analysis');
+          renderStressResults(stats, 'Historical Analysis', 'histResults');
         } catch (error) {
           console.error('Simulation error:', error);
-          document.getElementById('stressResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          document.getElementById('histResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         }
       }, 50);
     };
@@ -861,27 +1316,27 @@
     // Scenarios simulation
     window.runScenariosUI = function() {
       const config = {
-        equityStart: parseFloat(document.getElementById('mcEquity').value) || 250000,
-        bondStart: parseFloat(document.getElementById('mcBond').value) || 200000,
-        cashStart: parseFloat(document.getElementById('mcCash').value) || 50000,
-        years: parseInt(document.getElementById('mcYears').value) || 35
+        equityStart: parseFloat(document.getElementById('scenEquity').value) || 250000,
+        bondStart: parseFloat(document.getElementById('scenBond').value) || 200000,
+        cashStart: parseFloat(document.getElementById('scenCash').value) || 50000,
+        years: 35 // Scenarios use settings duration
       };
 
-      document.getElementById('stressResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running scenarios...</div>';
+      document.getElementById('scenResults').innerHTML = '<div class="loading"><div class="spinner"></div>Running scenarios...</div>';
 
       setTimeout(() => {
         try {
           const scenarios = runAllScenarios(config);
-          renderScenarioResults(scenarios);
+          renderScenarioResults(scenarios, 'scenResults');
         } catch (error) {
           console.error('Scenario error:', error);
-          document.getElementById('stressResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          document.getElementById('scenResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         }
       }, 50);
     };
 
     // Render stress test results
-    function renderStressResults(stats, title) {
+    function renderStressResults(stats, title, containerId) {
       const successClass = stats.successRate >= 90 ? 'success' : stats.successRate >= 80 ? 'warning' : 'danger';
 
       let html = `
@@ -933,11 +1388,11 @@
         </div>
       `;
 
-      document.getElementById('stressResults').innerHTML = html;
+      document.getElementById(containerId).innerHTML = html;
     }
 
     // Render scenario results
-    function renderScenarioResults(scenarios) {
+    function renderScenarioResults(scenarios, containerId) {
       let html = '<div class="card"><h2>Scenario Analysis</h2>';
 
       for (const [key, scenario] of Object.entries(scenarios)) {
@@ -962,8 +1417,224 @@
       }
 
       html += '</div>';
-      document.getElementById('stressResults').innerHTML = html;
+      document.getElementById(containerId).innerHTML = html;
     }
+
+    // Load stress settings into UI
+    async function loadStressSettings() {
+      try {
+        const s = await getStressSettingsAsync();
+        document.getElementById('ssBaseSalary').value = s.baseSalary;
+        document.getElementById('ssEquityMin').value = s.equityMin;
+        document.getElementById('ssBondMin').value = s.bondMin;
+        document.getElementById('ssCashTarget').value = s.cashTarget;
+        document.getElementById('ssDuration').value = s.duration;
+        document.getElementById('ssPA').value = s.pa;
+        document.getElementById('ssBRL').value = s.brl;
+        document.getElementById('ssHRL').value = s.hrl;
+        document.getElementById('ssTaxMode').value = s.taxMode || 'inflates';
+        document.getElementById('ssOther').value = s.other || 0;
+        document.getElementById('ssStatePension').value = s.statePension || 12000;
+        document.getElementById('ssStatePensionYear').value = s.statePensionYear || 12;
+        document.getElementById('ssConsecutiveLimit').value = s.consecutiveLimit || 3;
+        document.getElementById('ssProtectionMult').value = s.protectionMult || 0.8;
+        document.getElementById('ssDisableProtection').checked = s.disableProtection || false;
+        document.getElementById('ssHodlEnabled').checked = s.hodlEnabled || false;
+        document.getElementById('ssHodlValue').value = s.hodlValue || 25000;
+      } catch (error) {
+        console.error('Error loading stress settings:', error);
+      }
+    }
+
+    // Save stress settings
+    window.saveStressSettingsUI = async function() {
+      if (!isLoggedIn()) {
+        alert('Please sign in to save settings');
+        return;
+      }
+
+      try {
+        await saveStressSettings({
+          baseSalary: +document.getElementById('ssBaseSalary').value,
+          equityMin: +document.getElementById('ssEquityMin').value,
+          bondMin: +document.getElementById('ssBondMin').value,
+          cashTarget: +document.getElementById('ssCashTarget').value,
+          duration: +document.getElementById('ssDuration').value,
+          pa: +document.getElementById('ssPA').value,
+          brl: +document.getElementById('ssBRL').value,
+          hrl: +document.getElementById('ssHRL').value,
+          taxMode: document.getElementById('ssTaxMode').value,
+          other: +document.getElementById('ssOther').value,
+          statePension: +document.getElementById('ssStatePension').value,
+          statePensionYear: +document.getElementById('ssStatePensionYear').value,
+          consecutiveLimit: +document.getElementById('ssConsecutiveLimit').value,
+          protectionMult: +document.getElementById('ssProtectionMult').value,
+          disableProtection: document.getElementById('ssDisableProtection').checked,
+          hodlEnabled: document.getElementById('ssHodlEnabled').checked,
+          hodlValue: +document.getElementById('ssHodlValue').value
+        });
+        alert('Settings saved successfully');
+      } catch (error) {
+        console.error('Error saving stress settings:', error);
+        alert('Error saving: ' + error.message);
+      }
+    };
+
+    // Reset stress settings
+    window.resetStressSettingsUI = async function() {
+      if (!confirm('Reset all stress settings to defaults?')) return;
+
+      try {
+        await resetStressSettings();
+        await loadStressSettings();
+        alert('Settings reset to defaults');
+      } catch (error) {
+        console.error('Error resetting settings:', error);
+        alert('Error resetting: ' + error.message);
+      }
+    };
+
+    // Load decision settings into UI
+    async function loadDecisionSettings() {
+      try {
+        const s = await getDecisionSettingsAsync();
+        document.getElementById('dsEquityMin').value = s.equityMin || 250000;
+        document.getElementById('dsBondMin').value = s.bondMin || 200000;
+        document.getElementById('dsCashTarget').value = s.cashTarget || 50000;
+        document.getElementById('dsDuration').value = s.duration || 35;
+        document.getElementById('dsBaseSalary').value = s.baseSalary || 30000;
+        document.getElementById('dsProtectionFactor').value = s.protectionFactor || 20;
+        document.getElementById('dsRecoveryBuffer').value = s.recoveryBuffer || 15000;
+        document.getElementById('dsConsecutiveLimit').value = s.consecutiveLimit || 3;
+
+        // Also update entry form with settings
+        document.getElementById('entryEquity').value = s.equityMin || 250000;
+        document.getElementById('entryBond').value = s.bondMin || 200000;
+        document.getElementById('entryCash').value = s.cashTarget || 50000;
+      } catch (error) {
+        console.error('Error loading decision settings:', error);
+      }
+    }
+
+    // Save decision settings
+    window.saveDecisionSettingsUI = async function() {
+      if (!isLoggedIn()) {
+        alert('Please sign in to save settings');
+        return;
+      }
+
+      try {
+        await saveDecisionSettings({
+          equityMin: +document.getElementById('dsEquityMin').value,
+          bondMin: +document.getElementById('dsBondMin').value,
+          cashTarget: +document.getElementById('dsCashTarget').value,
+          duration: +document.getElementById('dsDuration').value,
+          baseSalary: +document.getElementById('dsBaseSalary').value,
+          protectionFactor: +document.getElementById('dsProtectionFactor').value,
+          recoveryBuffer: +document.getElementById('dsRecoveryBuffer').value,
+          consecutiveLimit: +document.getElementById('dsConsecutiveLimit').value
+        });
+        alert('Settings saved successfully');
+      } catch (error) {
+        console.error('Error saving decision settings:', error);
+        alert('Error saving: ' + error.message);
+      }
+    };
+
+    // Reset decision settings
+    window.resetDecisionSettingsUI = async function() {
+      if (!confirm('Reset all decision settings to defaults?')) return;
+
+      try {
+        await saveDecisionSettings({
+          equityMin: 250000,
+          bondMin: 200000,
+          cashTarget: 50000,
+          duration: 35,
+          baseSalary: 30000,
+          protectionFactor: 20,
+          recoveryBuffer: 15000,
+          consecutiveLimit: 3
+        });
+        await loadDecisionSettings();
+        alert('Settings reset to defaults');
+      } catch (error) {
+        console.error('Error resetting settings:', error);
+        alert('Error resetting: ' + error.message);
+      }
+    };
+
+    // Drawdown schedule
+    window.showDrawdownScheduleUI = async function() {
+      const inflation = parseFloat(document.getElementById('ddInflation').value) / 100 || 0.025;
+      const duration = parseInt(document.getElementById('ddDuration').value) || 35;
+
+      try {
+        const settings = await getStressSettingsAsync();
+        settings.duration = duration;
+        const schedule = generateDrawdownSchedule(settings, duration, inflation);
+
+        let html = '<div class="card"><h2>Projected SIPP Drawdown Schedule</h2>';
+        html += '<div style="overflow-x: auto;"><table>';
+        html += '<thead><tr><th>Year</th><th>BRL</th><th>Other</th><th>State</th><th>SIPP Draw</th><th>Tax</th><th>Net</th></tr></thead>';
+        html += '<tbody>';
+
+        for (const row of schedule) {
+          html += `<tr>
+            <td>${row.year}</td>
+            <td>${formatCurrency(row.brl)}</td>
+            <td>${formatCurrency(row.other)}</td>
+            <td>${formatCurrency(row.statePension)}</td>
+            <td style="color: var(--primary); font-weight: 600;">${formatCurrency(row.sippDraw)}</td>
+            <td style="color: var(--danger);">-${formatCurrency(row.tax)}</td>
+            <td style="color: var(--success);">${formatCurrency(row.netIncome)}</td>
+          </tr>`;
+        }
+
+        html += '</tbody></table></div></div>';
+        document.getElementById('drawdownResults').innerHTML = html;
+      } catch (error) {
+        console.error('Drawdown error:', error);
+        document.getElementById('drawdownResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    };
+
+    // Glidepath visualization
+    window.showGlidepathUI = async function() {
+      const inflation = parseFloat(document.getElementById('gpInflation').value) / 100 || 0.025;
+      const duration = parseInt(document.getElementById('gpDuration').value) || 35;
+
+      try {
+        const settings = await getStressSettingsAsync();
+        settings.duration = duration;
+        const schedule = generateGlidepathSchedule(settings, inflation);
+
+        let html = '<div class="card"><h2>Fund Glidepath (Inflation-Adjusted Minimums)</h2>';
+        html += '<div class="alert alert-info" style="margin-bottom: 20px;">';
+        html += '<strong>Glidepath Logic:</strong> Equity & Bond minimums inflate with CPI but deplete linearly to £0. Cash inflates only (maintains real value).';
+        html += '</div>';
+        html += '<div style="overflow-x: auto;"><table>';
+        html += '<thead><tr><th>Year</th><th>Cum Inflation</th><th>Equity Min</th><th>Bond Min</th><th>Cash Target</th><th>Total Min</th></tr></thead>';
+        html += '<tbody>';
+
+        for (const row of schedule) {
+          html += `<tr>
+            <td>${row.year}</td>
+            <td>${(row.cumulativeInflation * 100 - 100).toFixed(1)}%</td>
+            <td style="color: var(--success);">${formatCurrency(row.equityMin)}</td>
+            <td style="color: var(--info);">${formatCurrency(row.bondMin)}</td>
+            <td style="color: var(--warning);">${formatCurrency(row.cashTarget)}</td>
+            <td style="font-weight: 600;">${formatCurrency(row.totalMin)}</td>
+          </tr>`;
+        }
+
+        html += '</tbody></table></div></div>';
+        document.getElementById('glidepathResults').innerHTML = html;
+      } catch (error) {
+        console.error('Glidepath error:', error);
+        document.getElementById('glidepathResults').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    };
 
     // Render history
     function renderHistory() {
