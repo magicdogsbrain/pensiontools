@@ -285,10 +285,11 @@ export function validateStressSettings(settings) {
 /**
  * Creates simulation config from stress settings
  * @param {object} overrides - Optional overrides
+ * @param {object} preloadedSettings - Optional pre-loaded settings (to avoid cache issues)
  * @returns {object} Simulation config
  */
-export function createSimulationConfigFromSettings(overrides = {}) {
-  const settings = getStressSettings();
+export function createSimulationConfigFromSettings(overrides = {}, preloadedSettings = null) {
+  const settings = preloadedSettings || getStressSettings();
   return {
     equityStart: overrides.equityStart ?? settings.equityMin,
     bondStart: overrides.bondStart ?? settings.bondMin,

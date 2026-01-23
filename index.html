@@ -1725,8 +1725,8 @@
 
       resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Testing allocations...</div>';
 
-      // Pre-load settings async to ensure we have current values (not defaults)
-      await getStressSettingsAsync();
+      // Pre-load settings async and capture them to avoid cache expiration during loop
+      const preloadedSettings = await getStressSettingsAsync();
 
       setTimeout(() => {
         try {
@@ -1747,6 +1747,7 @@
 
           // Run simulations for each allocation
           // Tests "what if I started with different amounts" while keeping minimums fixed
+          // Pass preloadedSettings to avoid cache expiration issues during the loop
           const runSimForAlloc = (alloc) => {
             const config = {
               equityStart: alloc.equity,
@@ -1757,9 +1758,9 @@
 
             let simResult;
             if (testType === 'MC') {
-              simResult = runMonteCarloSimulation(config);
+              simResult = runMonteCarloSimulation(config, preloadedSettings);
             } else {
-              simResult = runHistoricalSimulation(config);
+              simResult = runHistoricalSimulation(config, preloadedSettings);
             }
 
             return {

@@ -206,9 +206,10 @@ export function saveCurrentDecision() {
 /**
  * Runs Monte Carlo simulation with current settings
  * @param {object} overrides - Optional config overrides
+ * @param {object} preloadedSettings - Optional pre-loaded settings (to avoid cache issues in loops)
  */
-export function runMonteCarloSimulation(overrides = {}) {
-  const config = createSimulationConfigFromSettings(overrides);
+export function runMonteCarloSimulation(overrides = {}, preloadedSettings = null) {
+  const config = createSimulationConfigFromSettings(overrides, preloadedSettings);
   const results = runMonteCarlo(config);
   const stats = analyzeResults(results);
 
@@ -218,9 +219,10 @@ export function runMonteCarloSimulation(overrides = {}) {
 /**
  * Runs historical simulation with current settings
  * @param {object} overrides - Optional config overrides
+ * @param {object} preloadedSettings - Optional pre-loaded settings (to avoid cache issues in loops)
  */
-export function runHistoricalSimulation(overrides = {}) {
-  const config = createSimulationConfigFromSettings(overrides);
+export function runHistoricalSimulation(overrides = {}, preloadedSettings = null) {
+  const config = createSimulationConfigFromSettings(overrides, preloadedSettings);
   const results = runHistorical(config);
   const stats = analyzeResults(results);
 
