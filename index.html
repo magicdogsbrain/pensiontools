@@ -512,6 +512,7 @@
         <div class="header-actions">
           <div class="user-info">
             <span class="user-email" id="userEmail"></span>
+            <button class="logout-btn" id="resetBtn" title="Delete all data and start fresh">Reset</button>
             <button class="logout-btn" id="logoutBtn">Sign Out</button>
           </div>
         </div>
@@ -1039,7 +1040,7 @@
 
     // Import auth helpers and data check
     import { isLoggedIn, logOut, getCurrentUser } from './src/firebase/index.js';
-    import { hasCloudData } from './src/firebase/FirestoreService.js';
+    import { hasCloudData, wipeAllUserData } from './src/firebase/FirestoreService.js';
 
     // Inject component styles
     const styleEl = document.createElement('style');
@@ -1125,16 +1126,28 @@
      * Initialize auth screen with success callback
      */
     initAuthScreen(document.getElementById('authScreen'), async (user) => {
-      console.log('Auth success:', user.email);
+      console.log('Auth success callback triggered for:', user.email);
 
-      // Check if user has existing data
-      const hasData = await hasCloudData();
+      try {
+        // Check if user has existing data
+        console.log('Checking for existing cloud data...');
+        const hasData = await hasCloudData();
+        console.log('Has cloud data:', hasData);
 
-      if (hasData) {
-        // Existing user - go straight to app
-        showMainApp(user);
-      } else {
-        // New user - show setup wizard
+        if (hasData) {
+          // Existing user - go straight to app
+          console.log('Existing user - showing main app');
+          showMainApp(user);
+        } else {
+          // New user - show setup wizard
+          console.log('New user - showing setup wizard');
+          hideAuthScreen();
+          document.getElementById('setupWizard').style.display = 'block';
+          initSetupWizard(document.getElementById('setupWizard'), handleWizardComplete);
+        }
+      } catch (error) {
+        console.error('Error in auth callback:', error);
+        // Fallback: show wizard if we can't determine data status
         hideAuthScreen();
         document.getElementById('setupWizard').style.display = 'block';
         initSetupWizard(document.getElementById('setupWizard'), handleWizardComplete);
@@ -1149,6 +1162,47 @@
         showAuthScreen();
       } catch (error) {
         console.error('Logout error:', error);
+      }
+    });
+
+    // Reset button handler - wipes all data and shows wizard
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      const confirmed = confirm(
+        '⚠️ WARNING: This will permanently delete ALL your data including:\n\n' +
+        '• All saved settings\n' +
+        '• All decision history\n' +
+        '• All tax year configurations\n\n' +
+        'This action cannot be undone.\n\n' +
+        'Are you sure you want to reset and start over?'
+      );
+
+      if (!confirmed) return;
+
+      // Double-check
+      const doubleConfirmed = confirm(
+        'Are you ABSOLUTELY sure?\n\n' +
+        'Type OK to confirm deletion of all your data.'
+      );
+
+      if (!doubleConfirmed) return;
+
+      try {
+        console.log('Wiping all user data...');
+        await wipeAllUserData();
+        console.log('Data wiped successfully');
+
+        // Clear local storage too
+        localStorage.clear();
+
+        // Hide main app and show wizard
+        document.getElementById('mainApp').classList.add('hidden');
+        document.getElementById('setupWizard').style.display = 'block';
+        initSetupWizard(document.getElementById('setupWizard'), handleWizardComplete);
+
+        alert('All data has been deleted. Please complete the setup wizard to start fresh.');
+      } catch (error) {
+        console.error('Reset error:', error);
+        alert('Error resetting data: ' + error.message);
       }
     });
 
