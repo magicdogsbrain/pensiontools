@@ -717,6 +717,18 @@
                 <input type="number" id="dsBaseSalary" value="30000">
               </div>
               <div class="form-group">
+                <label>State Pension (£/yr today's money)</label>
+                <input type="number" id="dsStatePension" value="12000">
+              </div>
+              <div class="form-group">
+                <label>Years Until State Pension</label>
+                <input type="number" id="dsStatePensionYear" value="12">
+              </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">Protection Settings</h3>
+            <div class="form-grid">
+              <div class="form-group">
                 <label>Protection Reduction (%)</label>
                 <input type="number" id="dsProtectionFactor" value="20">
               </div>
@@ -1378,6 +1390,8 @@
         document.getElementById('dsCashTarget').value = decisionSettings.cashTarget || 50000;
         document.getElementById('dsDuration').value = decisionSettings.duration || 35;
         document.getElementById('dsBaseSalary').value = decisionSettings.baseSalary || 30000;
+        document.getElementById('dsStatePension').value = decisionSettings.statePension || 12000;
+        document.getElementById('dsStatePensionYear').value = decisionSettings.statePensionYear || 12;
         document.getElementById('dsProtectionFactor').value = decisionSettings.protectionFactor || 20;
         document.getElementById('dsRecoveryBuffer').value = decisionSettings.recoveryBuffer || 10000;
         document.getElementById('dsConsecutiveLimit').value = decisionSettings.consecutiveLimit || 3;
@@ -2737,6 +2751,8 @@
           cashTarget: +document.getElementById('dsCashTarget').value,
           duration: +document.getElementById('dsDuration').value,
           baseSalary: +document.getElementById('dsBaseSalary').value,
+          statePension: +document.getElementById('dsStatePension').value,
+          statePensionYear: +document.getElementById('dsStatePensionYear').value,
           protectionFactor: +document.getElementById('dsProtectionFactor').value,
           recoveryBuffer: +document.getElementById('dsRecoveryBuffer').value,
           consecutiveLimit: +document.getElementById('dsConsecutiveLimit').value
@@ -2940,7 +2956,20 @@
       const statePensionYear = decisionSettings.statePensionYear || 12;
       const baseStatePension = decisionSettings.statePension || 0;
 
-      let html = '';
+      // Common input style
+      const inputStyle = 'background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;width:90px;font-size:13px;';
+
+      let html = '<table class="tax-years-table" style="width:100%;border-collapse:collapse;">';
+      html += '<thead><tr style="border-bottom:1px solid var(--border);">';
+      html += '<th style="text-align:left;padding:8px;color:var(--text-muted);font-weight:500;">Year</th>';
+      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">PA</th>';
+      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">BRL</th>';
+      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">CPI %</th>';
+      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">Other</th>';
+      html += '<th style="text-align:right;padding:8px;color:var(--text-muted);font-weight:500;">State Pension</th>';
+      html += '<th style="padding:8px;"></th>';
+      html += '</tr></thead><tbody>';
+
       sortedYears.forEach((ty, index) => {
         const c = taxYears[ty];
         // Calculate state pension for this year
@@ -2954,47 +2983,34 @@
         }
         const statePensionDisplay = index >= statePensionYear
           ? '£' + statePensionValue.toLocaleString()
-          : '<span style="color:#666;font-style:italic;">Year ' + (statePensionYear - index) + '</span>';
+          : '<span style="color:var(--text-muted);font-style:italic;">Yr ' + (statePensionYear - index) + '</span>';
 
-        html += `
-          <div class="card" style="background:var(--card-alt);margin-bottom:12px;padding:16px;" id="taxYear_${ty.replace('/', '_')}">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <strong style="color:var(--primary);">${ty}</strong>
-              <button class="small secondary" onclick="deleteTaxYear('${ty}')">Delete</button>
-            </div>
-            <div class="grid grid-6" style="gap:12px;">
-              <div>
-                <label style="font-size:11px;color:var(--text-muted);">PA</label>
-                <input type="number" value="${c.pa || 12570}" onchange="updateTaxYear('${ty}','pa',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
-              </div>
-              <div>
-                <label style="font-size:11px;color:var(--text-muted);">BRL</label>
-                <input type="number" value="${c.brl || 50270}" onchange="updateTaxYear('${ty}','brl',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
-              </div>
-              <div>
-                <label style="font-size:11px;color:var(--text-muted);">HRL</label>
-                <input type="number" value="${c.hrl || 125140}" onchange="updateTaxYear('${ty}','hrl',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
-              </div>
-              <div>
-                <label style="font-size:11px;color:var(--text-muted);">CPI %</label>
-                <input type="number" step="0.1" value="${((c.cpi || 0.04) * 100).toFixed(1)}" onchange="updateTaxYear('${ty}','cpi',this.value/100)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
-              </div>
-              <div>
-                <label style="font-size:11px;color:var(--text-muted);">Other £/yr</label>
-                <input type="number" value="${c.other || 0}" onchange="updateTaxYear('${ty}','other',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;width:100%;">
-              </div>
-              <div>
-                <label style="font-size:11px;color:var(--text-muted);">State Pension</label>
-                <div style="padding:8px;color:var(--text-muted);font-size:13px;">${statePensionDisplay}</div>
-              </div>
-            </div>
-          </div>
-        `;
+        html += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 8px;"><strong style="color:var(--primary);">${ty}</strong></td>
+          <td style="padding:10px 8px;text-align:right;">
+            <input type="number" value="${c.pa || 12570}" onchange="updateTaxYear('${ty}','pa',this.value)" style="${inputStyle}">
+          </td>
+          <td style="padding:10px 8px;text-align:right;">
+            <input type="number" value="${c.brl || 50270}" onchange="updateTaxYear('${ty}','brl',this.value)" style="${inputStyle}">
+          </td>
+          <td style="padding:10px 8px;text-align:right;">
+            <input type="number" step="0.1" value="${((c.cpi || 0.04) * 100).toFixed(1)}" onchange="updateTaxYear('${ty}','cpi',this.value/100)" style="${inputStyle}width:60px;">
+          </td>
+          <td style="padding:10px 8px;text-align:right;">
+            <input type="number" value="${c.other || 0}" onchange="updateTaxYear('${ty}','other',this.value)" style="${inputStyle}">
+          </td>
+          <td style="padding:10px 8px;text-align:right;color:var(--text);">${statePensionDisplay}</td>
+          <td style="padding:10px 8px;text-align:right;">
+            <button class="small secondary" onclick="deleteTaxYear('${ty}')" style="padding:4px 8px;font-size:11px;">Delete</button>
+          </td>
+        </tr>`;
       });
+
+      html += '</tbody></table>';
 
       // Info about state pension settings
       const yearsRemaining = Math.max(0, statePensionYear - sortedYears.length);
-      html += `<p style="margin-top:16px;color:#888;font-size:12px;">
+      html += `<p style="margin-top:16px;color:var(--text-muted);font-size:12px;">
         State pension: £${baseStatePension.toLocaleString()} (today's money), starts in year ${statePensionYear} (${yearsRemaining > 0 ? yearsRemaining + ' years remaining' : 'already started'})
       </p>`;
 
