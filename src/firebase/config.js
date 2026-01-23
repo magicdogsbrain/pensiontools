@@ -19,12 +19,12 @@ import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBdbve0H70D-Ch69WlaxEly7PV8FYR85p0",
+  apiKey: "AIzaSyBdbve0H70D-Ch69WlaxEly7PVBFVRB5p0",
   authDomain: "pensiontools-4b237.firebaseapp.com",
   projectId: "pensiontools-4b237",
   storageBucket: "pensiontools-4b237.firebasestorage.app",
   messagingSenderId: "760877353696",
-  appId: "1:760877353696:web:2d0f7173c8d7fab6fd9e85",
+  appId: "1:760877353696:web:2d6f7173c8d7fab6fd9e85",
   measurementId: "G-80XX542QZE"
 };
 
