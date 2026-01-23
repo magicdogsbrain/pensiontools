@@ -19,12 +19,13 @@ import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDIwmZ27yriLoTjuQvJtQ1L5PY7S3Nw2Sb0",
+  apiKey: "AIzaSyDIwmZ27yriOTj-QvJtQ1L5PY7S3Nw2Sb6",
   authDomain: "pensiontools-4b237.firebaseapp.com",
   projectId: "pensiontools-4b237",
   storageBucket: "pensiontools-4b237.firebasestorage.app",
   messagingSenderId: "760877353696",
-  appId: "1:760877353696:web:62f509abaf480f98fd9e85"
+  appId: "1:760877353696:web:62f509abaf480f98fd9e85",
+  measurementId: "G-PBQKW0N1H3"
 };
 
 // Check if Firebase is configured
