@@ -8,8 +8,7 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -34,22 +33,6 @@ export function initAuthStateListener() {
     console.warn('Firebase not configured - auth disabled');
     return;
   }
-
-  // Check for redirect result on page load
-  getRedirectResult(auth)
-    .then((result) => {
-      if (result?.user) {
-        console.log('Google sign-in redirect completed:', result.user.email);
-      } else {
-        console.log('No redirect result (normal on first load)');
-      }
-    })
-    .catch((error) => {
-      console.error('Redirect sign-in error:', error.code, error.message);
-      // Common issues:
-      // - auth/unauthorized-domain: Domain not in Firebase authorized domains
-      // - auth/operation-not-allowed: Google sign-in not enabled in Firebase Console
-    });
 
   onAuthStateChanged(auth, (user) => {
     console.log('onAuthStateChanged fired:', user ? user.email : 'null');
@@ -134,20 +117,21 @@ export async function signInWithEmail(email, password) {
 
 /**
  * Sign in with Google
- * Uses redirect method to avoid cross-origin popup issues on GitHub Pages
- * @returns {Promise<void>}
+ * Uses popup method for more reliable auth flow
+ * @returns {Promise<object>} User credential
  */
 export async function signInWithGoogle() {
   if (!isFirebaseConfigured() || !auth) {
     throw new Error('Firebase not configured');
   }
 
-  console.log('Initiating Google sign-in redirect...');
+  console.log('Initiating Google sign-in popup...');
   try {
-    await signInWithRedirect(auth, googleProvider);
-    console.log('Redirect initiated');
+    const result = await signInWithPopup(auth, googleProvider);
+    console.log('Google sign-in successful:', result.user.email);
+    return result;
   } catch (error) {
-    console.error('signInWithRedirect error:', error.code, error.message);
+    console.error('signInWithPopup error:', error.code, error.message);
     throw error;
   }
 }
