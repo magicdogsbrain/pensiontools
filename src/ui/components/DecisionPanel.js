@@ -85,11 +85,29 @@ export function buildDecisionHTML(decision) {
   // Divider
   html += '<div class="divider"></div>';
 
-  // Total
-  const totalMonthly = d.sippDraw + d.isaDraw + d.other + d.statePension;
+  // Calculate NET total (after tax)
+  // Taxable income = SIPP + Other + State (ISA is tax-free)
+  const monthlyTaxable = d.sippDraw + d.other + d.statePension;
+  const annualTaxable = monthlyTaxable * 12;
+  const pa = d.pa || 12570;
+  const brl = d.brl || 50270;
+
+  // Tax calculation: 0% up to PA, 20% from PA to BRL, 40% above BRL
+  let annualTax = 0;
+  if (annualTaxable > pa) {
+    if (annualTaxable <= brl) {
+      annualTax = (annualTaxable - pa) * 0.2;
+    } else {
+      annualTax = (brl - pa) * 0.2 + (annualTaxable - brl) * 0.4;
+    }
+  }
+
+  // Net = gross taxable - tax + ISA (tax-free)
+  const totalMonthlyNet = monthlyTaxable - (annualTax / 12) + d.isaDraw;
+
   html += '<div class="draw-row total">';
   html += `<span class="label">Total Monthly Income</span>`;
-  html += `<span class="value">${formatCurrency(totalMonthly)}</span>`;
+  html += `<span class="value">${formatCurrency(totalMonthlyNet)}</span>`;
   html += '</div>';
 
   // Tax boost indicator

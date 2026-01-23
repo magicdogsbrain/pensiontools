@@ -8,6 +8,7 @@
 // Services
 import {
   calculateDecision,
+  calculateDecisionAsync,
   saveDecision,
   getDecisionSummary,
   formatAdvice
@@ -38,8 +39,10 @@ import {
   getDecisionSettingsAsync,
   saveDecisionSettings,
   getTaxYearConfig,
+  getTaxYearConfigAsync,
   saveTaxYearConfig,
   getAllTaxYears,
+  getAllTaxYearsAsync,
   getHistory,
   getHistoryAsync,
   addHistoryRecord,
@@ -161,12 +164,14 @@ function renderApp() {
 }
 
 /**
- * Calculates and displays a decision
+ * Calculates and displays a decision (async to ensure fresh Firebase data)
  * @param {object} params - Input parameters { date, equity, bond, cash, isaBalance }
+ * @returns {Promise<object>} The calculated decision
  */
-export function runDecision(params) {
+export async function runDecision(params) {
   try {
-    const decision = calculateDecision(params);
+    // Use async version to ensure fresh data from Firebase
+    const decision = await calculateDecisionAsync(params);
     AppState.currentDecision = decision;
 
     // Render to output container
@@ -290,6 +295,7 @@ function showSuccess(message) {
 export {
   // Services
   calculateDecision,
+  calculateDecisionAsync,
   saveDecision,
   getDecisionSummary,
   runMonteCarlo,
@@ -304,8 +310,10 @@ export {
   getDecisionSettingsAsync,
   saveDecisionSettings,
   getTaxYearConfig,
+  getTaxYearConfigAsync,
   saveTaxYearConfig,
   getAllTaxYears,
+  getAllTaxYearsAsync,
   getHistory,
   getHistoryAsync,
   getStressSettings,

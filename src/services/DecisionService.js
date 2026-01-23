@@ -11,7 +11,16 @@ import { calculateDrawdownRecommendation } from './DrawdownService.js';
 import { calculateAllGlidepaths, calculateCumulativeInflation, checkGlidepathStatus, calculateProportionalDraw } from './GlidepathService.js';
 import { checkProtectionStatus, determineWithdrawalSource, recommendRebalancing, calculateProtectionShortfall } from './ProtectionService.js';
 import { getTaxYear, getElapsedTaxYearMonths, getRemainingTaxYearMonths, getYearNumber, parseMonth } from '../utils/DateUtils.js';
-import { getDecisionSettings, getTaxYearConfig, getTaxYearHistory, addHistoryRecord } from '../storage/DecisionRepository.js';
+import {
+  getDecisionSettings,
+  getDecisionSettingsAsync,
+  getTaxYearConfig,
+  getTaxYearConfigAsync,
+  getTaxYearHistory,
+  addHistoryRecord,
+  getAllTaxYears,
+  getAllTaxYearsAsync
+} from '../storage/DecisionRepository.js';
 
 /**
  * Calculates a complete monthly decision
@@ -55,23 +64,23 @@ export function calculateDecision(params) {
   // Get history for this tax year
   const priorHistory = getTaxYearHistory(taxYear);
 
-  // Calculate year number (from start date or first history entry)
-  const startDate = settings.startDate ||
-                    (priorHistory.length > 0 ? priorHistory[0].date : date);
-  const yearNumber = getYearNumber(startDate, dateObj);
+  // Calculate year number based on tax years recorded
+  // This is more accurate than date-based calculation as it reflects actual usage
+  const allTaxYears = getAllTaxYears();
+  const sortedTaxYears = Object.keys(allTaxYears).sort();
+  const yearNumber = sortedTaxYears.indexOf(taxYear);
+  // If current tax year isn't in the list yet, it's year 0 or we use the count
+  const effectiveYearNumber = yearNumber >= 0 ? yearNumber : sortedTaxYears.length;
 
-  // Calculate cumulative inflation from CPI history
-  const yearlyInflation = priorHistory.map(h => taxYearConfig.cpi);
-  // Add previous years' inflation
-  for (let y = 0; y < yearNumber; y++) {
-    if (!yearlyInflation[y]) {
-      yearlyInflation.unshift(taxYearConfig.cpi);
-    }
-  }
+  // Calculate cumulative inflation from CPI of each tax year
+  const yearlyInflation = sortedTaxYears.slice(0, effectiveYearNumber + 1).map(ty => {
+    const config = allTaxYears[ty];
+    return config?.cpi || 0.04;
+  });
   const cumulativeInflation = calculateCumulativeInflation(yearlyInflation);
 
   // Calculate glidepath minimums
-  const glidepaths = calculateAllGlidepaths(settings, yearNumber, cumulativeInflation);
+  const glidepaths = calculateAllGlidepaths(settings, effectiveYearNumber, cumulativeInflation);
 
   // Check protection status
   const protectionStatus = checkProtectionStatus({
@@ -87,6 +96,13 @@ export function calculateDecision(params) {
   });
 
   // Calculate drawdown recommendation (NEW UNIFIED LOGIC)
+  // State pension comes from decision settings (base value in today's money)
+  // statePensionYear is the original setting, but we calculate effective years
+  // based on how many tax years have been recorded
+  const baseStatePensionYear = settings.statePensionYear || 12;
+  // Effective years remaining = original setting minus years already elapsed
+  const effectiveStatePensionYear = Math.max(0, baseStatePensionYear - effectiveYearNumber);
+
   const recommendation = calculateDrawdownRecommendation({
     equity,
     bond,
@@ -96,9 +112,9 @@ export function calculateDecision(params) {
     cumulativeInflation,
     yearlyInflation,
     other: taxYearConfig.other,
-    statePension: taxYearConfig.statePension,
-    statePensionYear: settings.statePensionYear || 12,
-    yearNumber,
+    statePension: settings.statePension || 0,
+    statePensionYear: baseStatePensionYear,  // Use original setting - DrawdownService compares to yearNumber
+    yearNumber: effectiveYearNumber,
     pa: taxYearConfig.pa,
     brl: taxYearConfig.brl,
     hrl: taxYearConfig.hrl,
@@ -148,7 +164,7 @@ export function calculateDecision(params) {
     // Context
     date: typeof date === 'string' ? date : date.toISOString().slice(0, 7),
     taxYear,
-    yearNumber,
+    yearNumber: effectiveYearNumber,
     monthInTaxYear: getElapsedTaxYearMonths(dateObj),
     remainingMonths: getRemainingTaxYearMonths(dateObj),
 
@@ -205,6 +221,176 @@ export function calculateDecision(params) {
     alerts,
 
     // Debug/calculation details
+    calculationDetails: {
+      mode: recommendation.mode,
+      reason: recommendation.reason,
+      isaNeededMonthly: recommendation.isaNeededMonthly,
+      totalIsaNeeded: recommendation.totalIsaNeeded,
+      hasSufficientIsa: recommendation.hasSufficientIsa,
+      cumulativeInflation,
+      yearlyInflation,
+      glidepaths,
+      protectionStatus,
+      taxInfo: recommendation.taxInfo
+    }
+  });
+
+  return decision;
+}
+
+/**
+ * Calculates a complete monthly decision (async version)
+ * Ensures fresh data from Firebase before calculating.
+ *
+ * @param {object} params - Input parameters
+ * @returns {Promise<object>} Complete decision with single recommendation
+ */
+export async function calculateDecisionAsync(params) {
+  const {
+    date,           // YYYY-MM format or Date
+    equity,         // Current equity fund value
+    bond,           // Current bond fund value
+    cash,           // Current cash fund value
+    isaBalance = 0  // Current ISA balance
+  } = params;
+
+  // Load settings asynchronously to ensure fresh data
+  const settings = await getDecisionSettingsAsync();
+
+  // Parse date and determine context
+  const dateObj = typeof date === 'string' ? parseMonth(date) : date;
+  const taxYear = getTaxYear(dateObj);
+  const taxYearConfig = await getTaxYearConfigAsync(taxYear);
+
+  // Get history for this tax year
+  const priorHistory = getTaxYearHistory(taxYear);
+
+  // Calculate year number based on tax years recorded
+  const allTaxYears = await getAllTaxYearsAsync();
+  const sortedTaxYears = Object.keys(allTaxYears).sort();
+  const yearNumber = sortedTaxYears.indexOf(taxYear);
+  const effectiveYearNumber = yearNumber >= 0 ? yearNumber : sortedTaxYears.length;
+
+  // Calculate cumulative inflation from CPI of each tax year
+  const yearlyInflation = sortedTaxYears.slice(0, effectiveYearNumber + 1).map(ty => {
+    const config = allTaxYears[ty];
+    return config?.cpi || 0.04;
+  });
+  const cumulativeInflation = calculateCumulativeInflation(yearlyInflation);
+
+  // Calculate glidepath minimums
+  const glidepaths = calculateAllGlidepaths(settings, effectiveYearNumber, cumulativeInflation);
+
+  // Check protection status
+  const protectionStatus = checkProtectionStatus({
+    equity,
+    bond,
+    cash,
+    adjEquityMin: glidepaths.equity,
+    adjBondMin: glidepaths.bond,
+    adjCashTarget: glidepaths.cash,
+    priorHistory,
+    consecutiveLimit: settings.consecutiveLimit,
+    recoveryBuffer: settings.recoveryBuffer
+  });
+
+  // Calculate drawdown recommendation
+  const baseStatePensionYear = settings.statePensionYear || 12;
+  const effectiveStatePensionYear = Math.max(0, baseStatePensionYear - effectiveYearNumber);
+
+  const recommendation = calculateDrawdownRecommendation({
+    equity,
+    bond,
+    cash,
+    isaBalance,
+    baseSalary: settings.baseSalary,
+    cumulativeInflation,
+    yearlyInflation,
+    other: taxYearConfig.other,
+    statePension: settings.statePension || 0,
+    statePensionYear: baseStatePensionYear,
+    yearNumber: effectiveYearNumber,
+    pa: taxYearConfig.pa,
+    brl: taxYearConfig.brl,
+    hrl: taxYearConfig.hrl,
+    taxMode: settings.taxMode || 'inflates',
+    currentDate: dateObj,
+    taxYearHistory: priorHistory,
+    inProtection: protectionStatus.inProtection,
+    protectionFactor: settings.protectionFactor,
+    adjEquityMin: glidepaths.equity,
+    adjBondMin: glidepaths.bond
+  });
+
+  // Determine withdrawal source
+  const withdrawalSource = determineWithdrawalSource({
+    drawAmount: recommendation.monthlySipp + recommendation.boostAmount,
+    equity,
+    bond,
+    cash,
+    adjEquityMin: glidepaths.equity,
+    adjBondMin: glidepaths.bond,
+    adjCashTarget: glidepaths.cash,
+    inProtection: protectionStatus.inProtection
+  });
+
+  // Check for rebalancing needs
+  const rebalanceActions = recommendRebalancing({
+    equity,
+    bond,
+    cash,
+    adjEquityMin: glidepaths.equity,
+    adjBondMin: glidepaths.bond,
+    adjCashTarget: glidepaths.cash,
+    inProtection: protectionStatus.inProtection
+  });
+
+  // Build alerts
+  const alerts = buildAlerts({
+    recommendation,
+    protectionStatus,
+    glidepaths,
+    funds: { equity, bond, cash },
+    withdrawalSource
+  });
+
+  // Build complete decision
+  const decision = createDecision({
+    date: typeof date === 'string' ? date : date.toISOString().slice(0, 7),
+    taxYear,
+    yearNumber: effectiveYearNumber,
+    monthInTaxYear: getElapsedTaxYearMonths(dateObj),
+    remainingMonths: getRemainingTaxYearMonths(dateObj),
+    equity,
+    bond,
+    cash,
+    isa: isaBalance,
+    adjEquityMin: glidepaths.equity,
+    adjBondMin: glidepaths.bond,
+    adjCashTarget: glidepaths.cash,
+    pa: recommendation.taxInfo.pa,
+    brl: recommendation.taxInfo.brl,
+    hrl: recommendation.taxInfo.hrl,
+    other: recommendation.monthlyOther,
+    statePension: recommendation.monthlyState,
+    sippDraw: recommendation.monthlySipp + recommendation.boostAmount,
+    isaDraw: recommendation.monthlyIsa,
+    totalMonthlyNet: recommendation.monthlyNet,
+    taxEfficient: recommendation.mode === 'tax-efficient',
+    annualTaxableSoFar: recommendation.taxInfo.annualTaxable,
+    headroomToBRL: recommendation.taxInfo.headroomToBRL,
+    inProtection: protectionStatus.inProtection,
+    protectionReason: protectionStatus.reason,
+    consecutiveCashDraws: protectionStatus.consecutiveCashDraws,
+    boostAmount: recommendation.boostAmount,
+    boostEligible: recommendation.taxBoostEligible,
+    source: withdrawalSource.source,
+    drawFromEquity: withdrawalSource.fromEquity,
+    drawFromBond: withdrawalSource.fromBond,
+    drawFromCash: withdrawalSource.fromCash,
+    rebalanceNeeded: rebalanceActions.length > 0,
+    rebalanceActions: rebalanceActions.map(a => a.action),
+    alerts,
     calculationDetails: {
       mode: recommendation.mode,
       reason: recommendation.reason,

@@ -36,10 +36,12 @@ function getDefaultDecisionDB() {
       protectionFactor: DRAWDOWN_DEFAULTS.PROTECTION_FACTOR,
       recoveryBuffer: DRAWDOWN_DEFAULTS.RECOVERY_BUFFER,
       consecutiveLimit: DRAWDOWN_DEFAULTS.CONSECUTIVE_LIMIT,
-      startDate: null
+      startDate: null,
+      statePension: 12000,      // Base state pension in today's money
+      statePensionYear: 12      // Years from start until state pension begins
     },
     taxYears: {
-      '25/26': { pa: 12570, brl: 50270, hrl: 125140, cpi: 0.025, other: 0, statePension: 0 }
+      '25/26': { pa: 12570, brl: 50270, hrl: 125140, cpi: 0.04, other: 0 }
     },
     history: [],
     lastModified: null,
@@ -188,7 +190,20 @@ export async function saveDecisionSettings(settings) {
 }
 
 /**
- * Gets tax year configuration
+ * Gets default tax year configuration
+ */
+function getDefaultTaxYearConfig() {
+  return {
+    pa: TAX_DEFAULTS.PERSONAL_ALLOWANCE,
+    brl: TAX_DEFAULTS.BASIC_RATE_LIMIT,
+    hrl: TAX_DEFAULTS.HIGHER_RATE_LIMIT,
+    cpi: 0.04,
+    other: 0
+  };
+}
+
+/**
+ * Gets tax year configuration (sync - uses cache, may return stale data)
  * @param {string} taxYear - Tax year in 'YY/YY' format
  * @returns {object} Tax year configuration
  */
@@ -197,17 +212,23 @@ export function getTaxYearConfig(taxYear) {
   const config = db.taxYears[taxYear];
 
   if (!config) {
-    // Return defaults
-    return {
-      pa: TAX_DEFAULTS.PERSONAL_ALLOWANCE,
-      brl: TAX_DEFAULTS.BASIC_RATE_LIMIT,
-      hrl: TAX_DEFAULTS.HIGHER_RATE_LIMIT,
-      cpi: 0.025,
-      other: 0,
-      statePension: 0,
-      isaBalance: 0,
-      isaMonthlyDraw: 0
-    };
+    return getDefaultTaxYearConfig();
+  }
+
+  return config;
+}
+
+/**
+ * Gets tax year configuration asynchronously (ensures fresh data from Firebase)
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @returns {Promise<object>} Tax year configuration
+ */
+export async function getTaxYearConfigAsync(taxYear) {
+  const db = await loadDecisionDBAsync();
+  const config = db.taxYears[taxYear];
+
+  if (!config) {
+    return getDefaultTaxYearConfig();
   }
 
   return config;
@@ -231,6 +252,15 @@ export async function saveTaxYearConfig(taxYear, config) {
  */
 export function getAllTaxYears() {
   return loadDecisionDB().taxYears;
+}
+
+/**
+ * Gets all tax years asynchronously (ensures fresh data from Firebase)
+ * @returns {Promise<object>} All tax year configurations
+ */
+export async function getAllTaxYearsAsync() {
+  const db = await loadDecisionDBAsync();
+  return db.taxYears;
 }
 
 /**
