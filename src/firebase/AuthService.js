@@ -39,11 +39,16 @@ export function initAuthStateListener() {
   getRedirectResult(auth)
     .then((result) => {
       if (result?.user) {
-        console.log('Google sign-in redirect completed');
+        console.log('Google sign-in redirect completed:', result.user.email);
+      } else {
+        console.log('No redirect result (normal on first load)');
       }
     })
     .catch((error) => {
-      console.error('Redirect sign-in error:', error);
+      console.error('Redirect sign-in error:', error.code, error.message);
+      // Common issues:
+      // - auth/unauthorized-domain: Domain not in Firebase authorized domains
+      // - auth/operation-not-allowed: Google sign-in not enabled in Firebase Console
     });
 
   onAuthStateChanged(auth, (user) => {
@@ -132,7 +137,14 @@ export async function signInWithGoogle() {
     throw new Error('Firebase not configured');
   }
 
-  return signInWithRedirect(auth, googleProvider);
+  console.log('Initiating Google sign-in redirect...');
+  try {
+    await signInWithRedirect(auth, googleProvider);
+    console.log('Redirect initiated');
+  } catch (error) {
+    console.error('signInWithRedirect error:', error.code, error.message);
+    throw error;
+  }
 }
 
 /**
