@@ -1221,13 +1221,20 @@
         input.dataset.formatted = 'true';
 
         const wrapper = input.closest('.input-with-unit') || input.parentElement;
+        const hasUnit = input.closest('.input-with-unit') !== null;
 
         // Create overlay span for formatted display
         const overlay = document.createElement('span');
         overlay.className = 'number-format-overlay';
+
+        // Position overlay to align with input text
+        // For inputs with £ unit: unit width (~12px) + gap (8px) + input padding (14px) = ~34px
+        // For plain inputs: just the input padding (14px)
+        const leftOffset = hasUnit ? '34px' : '14px';
+
         overlay.style.cssText = `
           position: absolute;
-          left: ${input.closest('.input-with-unit') ? '28px' : '12px'};
+          left: ${leftOffset};
           top: 50%;
           transform: translateY(-50%);
           pointer-events: none;
@@ -1246,7 +1253,7 @@
         // Function to update overlay
         function updateOverlay() {
           const val = parseFloat(input.value);
-          if (!isNaN(val) && val >= 1000) {
+          if (!isNaN(val) && val >= 1000 && document.activeElement !== input) {
             overlay.textContent = formatWithSpaces(val);
             overlay.style.display = 'block';
             input.style.color = 'transparent';
@@ -1255,6 +1262,9 @@
             input.style.color = '';
           }
         }
+
+        // Store updateOverlay function on the input for external access
+        input._updateOverlay = updateOverlay;
 
         // Hide overlay on focus, show on blur
         input.addEventListener('focus', () => {
@@ -1276,6 +1286,15 @@
 
         // Initial format
         updateOverlay();
+      });
+    }
+
+    // Function to refresh all number input overlays (call after programmatically setting values)
+    function refreshNumberOverlays() {
+      document.querySelectorAll('input[type="number"]').forEach(input => {
+        if (input._updateOverlay) {
+          input._updateOverlay();
+        }
       });
     }
 
@@ -1377,6 +1396,9 @@
         document.getElementById('mcBond').value = wizardData.bondMin;
         document.getElementById('mcCash').value = wizardData.cashTarget;
         document.getElementById('mcYears').value = wizardData.duration;
+
+        // Refresh number overlays after programmatic value changes
+        refreshNumberOverlays();
 
       } catch (error) {
         console.error('Error saving wizard settings:', error);
@@ -1586,6 +1608,9 @@
       if (bondEl) bondEl.value = s.bondMin;
       if (cashEl) cashEl.value = s.cashTarget;
       if (yearsEl) yearsEl.value = s.duration;
+
+      // Refresh number overlays after programmatic value changes
+      refreshNumberOverlays();
     }
 
     // Monte Carlo simulation
@@ -2170,6 +2195,9 @@
         document.getElementById('ssDisableProtection').checked = s.disableProtection || false;
         document.getElementById('ssHodlEnabled').checked = s.hodlEnabled || false;
         document.getElementById('ssHodlValue').value = s.hodlValue || 25000;
+
+        // Refresh number overlays after programmatic value changes
+        refreshNumberOverlays();
       } catch (error) {
         console.error('Error loading stress settings:', error);
       }
@@ -2240,6 +2268,9 @@
         document.getElementById('entryEquity').value = s.equityMin || 250000;
         document.getElementById('entryBond').value = s.bondMin || 200000;
         document.getElementById('entryCash').value = s.cashTarget || 50000;
+
+        // Refresh number overlays after programmatic value changes
+        refreshNumberOverlays();
       } catch (error) {
         console.error('Error loading decision settings:', error);
       }
