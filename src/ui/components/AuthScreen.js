@@ -23,17 +23,23 @@ let onAuthSuccessCallback = null;
  * @param {Function} onSuccess - Callback when auth succeeds
  */
 export function initAuthScreen(container, onSuccess) {
+  console.log('initAuthScreen: initializing');
   authScreenElement = container;
   onAuthSuccessCallback = onSuccess;
 
   // Listen for auth state changes
   onAuthStateChange((user) => {
+    console.log('AuthScreen: auth state change received:', user ? user.email : 'null');
     if (user && onAuthSuccessCallback) {
+      console.log('AuthScreen: calling onAuthSuccessCallback');
       onAuthSuccessCallback(user);
+    } else {
+      console.log('AuthScreen: no user or no callback, user=', user, 'callback=', !!onAuthSuccessCallback);
     }
   });
 
   renderAuthScreen();
+  console.log('initAuthScreen: complete');
 }
 
 /**
@@ -311,8 +317,10 @@ function getAuthErrorMessage(code) {
  * Hide the auth screen
  */
 export function hideAuthScreen() {
+  console.log('hideAuthScreen: hiding auth screen, element=', !!authScreenElement);
   if (authScreenElement) {
     authScreenElement.style.display = 'none';
+    console.log('hideAuthScreen: set display to none');
   }
 }
 

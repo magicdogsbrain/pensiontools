@@ -52,8 +52,10 @@ export function initAuthStateListener() {
     });
 
   onAuthStateChanged(auth, (user) => {
+    console.log('onAuthStateChanged fired:', user ? user.email : 'null');
     currentUser = user;
     // Notify all listeners
+    console.log('Notifying', authStateListeners.length, 'listeners');
     authStateListeners.forEach(listener => listener(user));
   });
 }
@@ -64,9 +66,12 @@ export function initAuthStateListener() {
  * @returns {function} Unsubscribe function
  */
 export function onAuthStateChange(listener) {
+  console.log('onAuthStateChange: adding listener, currentUser is:', currentUser ? currentUser.email : currentUser);
   authStateListeners.push(listener);
-  // Immediately call with current state
-  if (currentUser !== undefined) {
+  // Immediately call with current state if we have a user
+  // (Don't call with null - wait for Firebase to initialize)
+  if (currentUser) {
+    console.log('onAuthStateChange: immediately calling listener with user');
     listener(currentUser);
   }
   // Return unsubscribe function
