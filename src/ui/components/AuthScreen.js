@@ -16,6 +16,7 @@ import {
 // Auth screen state
 let authScreenElement = null;
 let onAuthSuccessCallback = null;
+let authProcessed = false; // Prevent duplicate callback firing
 
 /**
  * Initialize the auth screen
@@ -26,15 +27,21 @@ export function initAuthScreen(container, onSuccess) {
   console.log('initAuthScreen: initializing');
   authScreenElement = container;
   onAuthSuccessCallback = onSuccess;
+  authProcessed = false; // Reset on init
 
   // Listen for auth state changes
   onAuthStateChange((user) => {
-    console.log('AuthScreen: auth state change received:', user ? user.email : 'null');
-    if (user && onAuthSuccessCallback) {
+    console.log('AuthScreen: auth state change received:', user ? user.email : 'null', 'processed:', authProcessed);
+    if (user && onAuthSuccessCallback && !authProcessed) {
       console.log('AuthScreen: calling onAuthSuccessCallback');
+      authProcessed = true; // Mark as processed to prevent duplicate calls
       onAuthSuccessCallback(user);
+    } else if (!user) {
+      // Reset when user signs out
+      authProcessed = false;
+      console.log('AuthScreen: user signed out, reset authProcessed');
     } else {
-      console.log('AuthScreen: no user or no callback, user=', user, 'callback=', !!onAuthSuccessCallback);
+      console.log('AuthScreen: skipping callback, already processed or no callback');
     }
   });
 
@@ -328,6 +335,7 @@ export function hideAuthScreen() {
  * Show the auth screen
  */
 export function showAuthScreen() {
+  authProcessed = false; // Reset so callback can fire on next sign-in
   if (authScreenElement) {
     authScreenElement.style.display = 'block';
     renderAuthScreen();

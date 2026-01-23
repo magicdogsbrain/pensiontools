@@ -359,11 +359,11 @@ export async function wipeAllUserData() {
     // Clear history collection
     await clearAllHistory();
 
-    // Delete main documents
+    // Delete main documents (path: users/{uid}/{collection}/settings)
     const batch = writeBatch(db);
-    batch.delete(doc(db, 'users', user.uid, 'decision'));
-    batch.delete(doc(db, 'users', user.uid, 'stress'));
-    batch.delete(doc(db, 'users', user.uid, 'profile'));
+    batch.delete(doc(db, 'users', user.uid, 'decision', 'settings'));
+    batch.delete(doc(db, 'users', user.uid, 'stress', 'settings'));
+    batch.delete(doc(db, 'users', user.uid, 'profile', 'settings'));
     await batch.commit();
 
     console.log('All user data wiped successfully');
