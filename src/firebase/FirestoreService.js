@@ -30,13 +30,16 @@ import { getCurrentUser } from './AuthService.js';
 
 /**
  * Get current user's document path
- * @param {string} docName - Document name
+ * @param {string} subCollection - Subcollection name under user
+ * @param {string} docId - Document ID within the subcollection
  * @returns {DocumentReference|null}
  */
-function getUserDoc(docName) {
+function getUserDoc(subCollection, docId = 'settings') {
   const user = getCurrentUser();
   if (!user || !db) return null;
-  return doc(db, 'users', user.uid, docName);
+  // Path: users/{userId}/{subCollection}/{docId}
+  // e.g., users/abc123/decision/settings
+  return doc(db, 'users', user.uid, subCollection, docId);
 }
 
 /**
