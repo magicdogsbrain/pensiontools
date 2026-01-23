@@ -60,6 +60,37 @@
     .header-actions {
       display: flex;
       gap: 12px;
+      align-items: center;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .user-email {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logout-btn {
+      padding: 8px 16px;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      background: var(--danger);
+      border-color: var(--danger);
     }
 
     /* Tabs */
@@ -400,144 +431,156 @@
   </style>
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header -->
-    <header class="header">
-      <h1>Pension Planner</h1>
-      <div class="header-actions">
-        <div id="authPanel"></div>
-      </div>
-    </header>
+  <!-- Auth Screen Container (shown first) -->
+  <div id="authScreen"></div>
 
-    <!-- Tabs -->
-    <nav class="tabs">
-      <button class="tab active" data-tab="decision">Decision Tool</button>
-      <button class="tab" data-tab="stress">Stress Tester</button>
-      <button class="tab" data-tab="history">History</button>
-      <button class="tab" data-tab="taxyears">Tax Years</button>
-    </nav>
+  <!-- Setup Wizard Container (shown for new users) -->
+  <div id="setupWizard" style="display: none;"></div>
 
-    <!-- Decision Tool Tab -->
-    <div id="decision-content" class="tab-content active">
-      <div class="grid-2">
-        <!-- Input Panel -->
-        <div class="card">
-          <h2>Monthly Entry</h2>
-          <form id="decisionForm" onsubmit="handleDecisionSubmit(event)">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Month</label>
-                <input type="month" id="entryMonth" required>
-              </div>
-            </div>
-
-            <h3 style="margin-top: 24px;">Fund Values</h3>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Equity Fund</label>
-                <div class="input-with-unit">
-                  <span class="unit">£</span>
-                  <input type="number" id="entryEquity" value="250000" required>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Bond Fund</label>
-                <div class="input-with-unit">
-                  <span class="unit">£</span>
-                  <input type="number" id="entryBond" value="200000" required>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Cash Fund</label>
-                <div class="input-with-unit">
-                  <span class="unit">£</span>
-                  <input type="number" id="entryCash" value="50000" required>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>ISA Balance</label>
-                <div class="input-with-unit">
-                  <span class="unit">£</span>
-                  <input type="number" id="entryISA" value="0">
-                </div>
-              </div>
-            </div>
-
-            <div style="margin-top: 24px; display: flex; gap: 12px;">
-              <button type="submit">Calculate</button>
-              <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
-            </div>
-          </form>
+  <!-- Main Application (hidden until authenticated) -->
+  <div id="mainApp" class="hidden">
+    <div class="app-container">
+      <!-- Header -->
+      <header class="header">
+        <h1>Pension Planner</h1>
+        <div class="header-actions">
+          <div class="user-info">
+            <span class="user-email" id="userEmail"></span>
+            <button class="logout-btn" id="logoutBtn">Sign Out</button>
+          </div>
         </div>
+      </header>
 
-        <!-- Output Panel -->
-        <div id="decisionOutput">
+      <!-- Tabs -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="decision">Decision Tool</button>
+        <button class="tab" data-tab="stress">Stress Tester</button>
+        <button class="tab" data-tab="history">History</button>
+        <button class="tab" data-tab="taxyears">Tax Years</button>
+      </nav>
+
+      <!-- Decision Tool Tab -->
+      <div id="decision-content" class="tab-content active">
+        <div class="grid-2">
+          <!-- Input Panel -->
           <div class="card">
-            <div class="loading">
-              <p>Enter your fund values and click Calculate to see your recommendation.</p>
+            <h2>Monthly Entry</h2>
+            <form id="decisionForm" onsubmit="handleDecisionSubmit(event)">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Month</label>
+                  <input type="month" id="entryMonth" required>
+                </div>
+              </div>
+
+              <h3 style="margin-top: 24px;">Fund Values</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Equity Fund</label>
+                  <div class="input-with-unit">
+                    <span class="unit">£</span>
+                    <input type="number" id="entryEquity" value="250000" required>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Bond Fund</label>
+                  <div class="input-with-unit">
+                    <span class="unit">£</span>
+                    <input type="number" id="entryBond" value="200000" required>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Cash Fund</label>
+                  <div class="input-with-unit">
+                    <span class="unit">£</span>
+                    <input type="number" id="entryCash" value="50000" required>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>ISA Balance</label>
+                  <div class="input-with-unit">
+                    <span class="unit">£</span>
+                    <input type="number" id="entryISA" value="0">
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 24px; display: flex; gap: 12px;">
+                <button type="submit">Calculate</button>
+                <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Output Panel -->
+          <div id="decisionOutput">
+            <div class="card">
+              <div class="loading">
+                <p>Enter your fund values and click Calculate to see your recommendation.</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Stress Tester Tab -->
-    <div id="stress-content" class="tab-content">
-      <div class="card">
-        <h2>Monte Carlo Simulation</h2>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Starting Equity</label>
-            <div class="input-with-unit">
-              <span class="unit">£</span>
-              <input type="number" id="mcEquity" value="250000">
+      <!-- Stress Tester Tab -->
+      <div id="stress-content" class="tab-content">
+        <div class="card">
+          <h2>Monte Carlo Simulation</h2>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Starting Equity</label>
+              <div class="input-with-unit">
+                <span class="unit">£</span>
+                <input type="number" id="mcEquity" value="250000">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Starting Bond</label>
+              <div class="input-with-unit">
+                <span class="unit">£</span>
+                <input type="number" id="mcBond" value="200000">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Starting Cash</label>
+              <div class="input-with-unit">
+                <span class="unit">£</span>
+                <input type="number" id="mcCash" value="50000">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Simulation Years</label>
+              <input type="number" id="mcYears" value="35">
             </div>
           </div>
-          <div class="form-group">
-            <label>Starting Bond</label>
-            <div class="input-with-unit">
-              <span class="unit">£</span>
-              <input type="number" id="mcBond" value="200000">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Starting Cash</label>
-            <div class="input-with-unit">
-              <span class="unit">£</span>
-              <input type="number" id="mcCash" value="50000">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Simulation Years</label>
-            <input type="number" id="mcYears" value="35">
+          <div style="margin-top: 20px; display: flex; gap: 12px;">
+            <button onclick="runMonteCarloUI()">Run Monte Carlo (1000 runs)</button>
+            <button class="secondary" onclick="runHistoricalUI()">Run Historical</button>
+            <button class="secondary" onclick="runScenariosUI()">Run Scenarios</button>
           </div>
         </div>
-        <div style="margin-top: 20px; display: flex; gap: 12px;">
-          <button onclick="runMonteCarloUI()">Run Monte Carlo (1000 runs)</button>
-          <button class="secondary" onclick="runHistoricalUI()">Run Historical</button>
-          <button class="secondary" onclick="runScenariosUI()">Run Scenarios</button>
+
+        <div id="stressResults"></div>
+      </div>
+
+      <!-- History Tab -->
+      <div id="history-content" class="tab-content">
+        <div class="card">
+          <h2>Decision History</h2>
+          <div id="historyList">
+            <p class="loading">No history entries yet.</p>
+          </div>
         </div>
       </div>
 
-      <div id="stressResults"></div>
-    </div>
-
-    <!-- History Tab -->
-    <div id="history-content" class="tab-content">
-      <div class="card">
-        <h2>Decision History</h2>
-        <div id="historyList">
-          <p class="loading">No history entries yet.</p>
+      <!-- Tax Years Tab -->
+      <div id="taxyears-content" class="tab-content">
+        <div class="card">
+          <h2>Tax Year Configuration</h2>
+          <div id="taxYearsList"></div>
+          <button style="margin-top: 20px;" onclick="addTaxYear()">Add Tax Year</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Tax Years Tab -->
-    <div id="taxyears-content" class="tab-content">
-      <div class="card">
-        <h2>Tax Year Configuration</h2>
-        <div id="taxYearsList"></div>
-        <button style="margin-top: 20px;" onclick="addTaxYear()">Add Tax Year</button>
       </div>
     </div>
   </div>
@@ -575,34 +618,33 @@
       getDecisionPanelStyles
     } from './src/app.js';
 
-    // Import auth panel
+    // Import auth screen
     import {
-      initAuthPanel,
-      getAuthPanelStyles
-    } from './src/ui/components/AuthPanel.js';
+      initAuthScreen,
+      hideAuthScreen,
+      showAuthScreen,
+      getAuthScreenStyles
+    } from './src/ui/components/AuthScreen.js';
 
-    // Import storage for delete
+    // Import setup wizard
+    import {
+      initSetupWizard,
+      hideSetupWizard,
+      showSetupWizard,
+      getSetupWizardStyles
+    } from './src/ui/components/SetupWizard.js';
+
+    // Import storage for delete and checking data
     import { deleteHistoryRecord } from './src/storage/DecisionRepository.js';
 
-    // Import auth helpers
-    import { isLoggedIn } from './src/firebase/index.js';
+    // Import auth helpers and data check
+    import { isLoggedIn, logOut, getCurrentUser } from './src/firebase/index.js';
+    import { hasCloudData } from './src/firebase/FirestoreService.js';
 
     // Inject component styles
     const styleEl = document.createElement('style');
-    styleEl.textContent = getDecisionPanelStyles() + getAuthPanelStyles();
+    styleEl.textContent = getDecisionPanelStyles() + getAuthScreenStyles() + getSetupWizardStyles();
     document.head.appendChild(styleEl);
-
-    // Initialize auth panel
-    initAuthPanel(document.getElementById('authPanel'), (user) => {
-      // Refresh UI when auth state changes
-      if (user) {
-        console.log('Logged in as:', user.email);
-        renderHistory();
-        renderTaxYears();
-      } else {
-        console.log('Logged out');
-      }
-    });
 
     // Display version
     document.getElementById('versionDisplay').textContent = `v${VERSION}`;
@@ -612,6 +654,103 @@
 
     // Current decision state
     let currentDecision = null;
+
+    /**
+     * Show the main application
+     */
+    function showMainApp(user) {
+      hideAuthScreen();
+      hideSetupWizard();
+      document.getElementById('mainApp').classList.remove('hidden');
+
+      // Update user info in header
+      document.getElementById('userEmail').textContent = user.email;
+
+      // Load initial data
+      renderHistory();
+      renderTaxYears();
+    }
+
+    /**
+     * Handle wizard completion
+     */
+    async function handleWizardComplete(wizardData) {
+      console.log('Wizard completed with data:', wizardData);
+
+      // Save settings from wizard
+      try {
+        // Save decision settings
+        await saveDecisionSettings({
+          baseSalary: wizardData.decisionSalary,
+          equityMin: wizardData.decisionEquity,
+          bondMin: wizardData.decisionBond,
+          cashTarget: wizardData.decisionCash,
+          duration: wizardData.decisionDuration
+        });
+
+        // Save stress settings
+        await saveStressSettings({
+          baseSalary: wizardData.baseSalary,
+          other: wizardData.otherIncome,
+          statePension: wizardData.statePension,
+          statePensionYear: wizardData.statePensionYear,
+          equityMin: wizardData.equityMin,
+          bondMin: wizardData.bondMin,
+          cashTarget: wizardData.cashTarget,
+          duration: wizardData.duration,
+          taxMode: wizardData.taxMode
+        });
+
+        // Pre-fill form with wizard values
+        document.getElementById('entryEquity').value = wizardData.decisionEquity;
+        document.getElementById('entryBond').value = wizardData.decisionBond;
+        document.getElementById('entryCash').value = wizardData.decisionCash;
+
+        // Pre-fill Monte Carlo with wizard values
+        document.getElementById('mcEquity').value = wizardData.equityMin;
+        document.getElementById('mcBond').value = wizardData.bondMin;
+        document.getElementById('mcCash').value = wizardData.cashTarget;
+        document.getElementById('mcYears').value = wizardData.duration;
+
+      } catch (error) {
+        console.error('Error saving wizard settings:', error);
+      }
+
+      // Show main app
+      const user = getCurrentUser();
+      showMainApp(user);
+    }
+
+    /**
+     * Initialize auth screen with success callback
+     */
+    initAuthScreen(document.getElementById('authScreen'), async (user) => {
+      console.log('Auth success:', user.email);
+
+      // Check if user has existing data
+      const hasData = await hasCloudData();
+
+      if (hasData) {
+        // Existing user - go straight to app
+        showMainApp(user);
+      } else {
+        // New user - show setup wizard
+        hideAuthScreen();
+        document.getElementById('setupWizard').style.display = 'block';
+        initSetupWizard(document.getElementById('setupWizard'), handleWizardComplete);
+      }
+    });
+
+    // Logout button handler
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      try {
+        await logOut();
+        document.getElementById('mainApp').classList.add('hidden');
+        showAuthScreen();
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    });
 
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
