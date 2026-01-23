@@ -665,13 +665,6 @@
                       <input type="number" id="entryCash" value="50000" required>
                     </div>
                   </div>
-                  <div class="form-group">
-                    <label>ISA Balance</label>
-                    <div class="input-with-unit">
-                      <span class="unit">£</span>
-                      <input type="number" id="entryISA" value="0">
-                    </div>
-                  </div>
                 </div>
 
                 <div style="margin-top: 24px; display: flex; gap: 12px;">
@@ -1649,22 +1642,24 @@
     async function calcDecisionPWA(dateStr, equity, bond, cash) {
       const settings = await getDecisionSettingsAsync();
       const history = await getHistoryAsync();
+      const allTaxYears = getAllTaxYears();
       const taxYear = getTaxYearFromDate(dateStr);
-      const taxYearConfig = await getTaxYearConfig(taxYear);
+      const taxYearConfig = allTaxYears[taxYear] || allTaxYears['25/26'] || { pa: 12570, brl: 50270, hrl: 125140, cpi: 0.025, other: 0, statePension: 0 };
       const yearNum = getYearNum(dateStr);
       const [year, month] = dateStr.split('-').map(Number);
 
-      // Get tax config (use saved or defaults)
-      const PA = taxYearConfig?.pa || 12570;
-      const BRL = taxYearConfig?.brl || 50270;
-      const OTHER = taxYearConfig?.other || 0;
-      const STATE = taxYearConfig?.statePension || 0;
-      const CPI = taxYearConfig?.cpi || 0.025;
+      // Get tax config from the specific tax year
+      const PA = taxYearConfig.pa || 12570;
+      const BRL = taxYearConfig.brl || 50270;
+      const OTHER = taxYearConfig.other || 0;
+      const STATE = taxYearConfig.statePension || 0;
 
-      // Calculate cumulative inflation
+      // Calculate cumulative inflation using each year's CPI (PWA logic)
       let cumInf = 1;
       for (let i = 0; i < yearNum; i++) {
-        cumInf *= 1 + CPI;
+        const yStr = String((26 + i) % 100).padStart(2, '0') + '/' + String((27 + i) % 100).padStart(2, '0');
+        const yearCPI = (allTaxYears[yStr] || {}).cpi || 0.025;
+        cumInf *= 1 + yearCPI;
       }
 
       // Calculate glidepath minimums
