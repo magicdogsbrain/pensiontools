@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pension Planner v6</title>
+  <link rel="manifest" href="./assets/manifest-Dn06CpHs.json">
+  <meta name="theme-color" content="#1a1a2e">
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --card: #1a1a2e;
+      --card-alt: #252540;
+      --border: #2a2a4a;
+      --text: #e0e0e0;
+      --text-muted: #8b8b9b;
+      --primary: #7eb8da;
+      --success: #2ea043;
+      --warning: #f0c674;
+      --danger: #f85149;
+      --info: #7eb8da;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* Layout */
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--card);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+      background: var(--card-alt);
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: var(--bg);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: var(--primary);
+    }
+
+    .card h3 {
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+
+    /* Forms */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 10px 14px;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .input-with-unit {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-with-unit .unit {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .input-with-unit input {
+      flex: 1;
+    }
+
+    /* Buttons */
+    button {
+      padding: 12px 24px;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      color: var(--bg);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.secondary {
+      background: var(--card-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button.success {
+      background: var(--success);
+    }
+
+    /* Grids */
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+
+    @media (max-width: 768px) {
+      .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Stat boxes */
+    .stat-box {
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-box .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .stat-box .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .stat-box.success { border-color: var(--success); }
+    .stat-box.success .stat-value { color: var(--success); }
+    .stat-box.warning { border-color: var(--warning); }
+    .stat-box.warning .stat-value { color: var(--warning); }
+    .stat-box.danger { border-color: var(--danger); }
+    .stat-box.danger .stat-value { color: var(--danger); }
+
+    /* Alerts */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .alert-info {
+      background: rgba(126, 184, 218, 0.15);
+      border: 1px solid rgba(126, 184, 218, 0.3);
+      color: var(--info);
+    }
+
+    .alert-success {
+      background: rgba(46, 160, 67, 0.15);
+      border: 1px solid rgba(46, 160, 67, 0.3);
+      color: var(--success);
+    }
+
+    .alert-warning {
+      background: rgba(240, 198, 116, 0.15);
+      border: 1px solid rgba(240, 198, 116, 0.3);
+      color: var(--warning);
+    }
+
+    .alert-danger {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+      color: var(--danger);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    /* Charts */
+    .chart-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .chart-title {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    /* History */
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background: var(--card-alt);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .history-item.protection {
+      border-left: 3px solid var(--warning);
+    }
+
+    .history-date {
+      font-weight: 600;
+    }
+
+    .history-details {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Hidden utility */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Tooltip */
+    #chartTooltip {
+      display: none;
+      position: fixed;
+      background: rgba(30, 30, 30, 0.95);
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #fff;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 280px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    /* Version */
+    .version {
+      position: fixed;
+      bottom: 8px;
+      right: 12px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+      pointer-events: none;
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/main-v9YRbx1K.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Pension Planner</h1>
+      <div class="header-actions">
+        <div id="authPanel"></div>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="decision">Decision Tool</button>
+      <button class="tab" data-tab="stress">Stress Tester</button>
+      <button class="tab" data-tab="history">History</button>
+      <button class="tab" data-tab="taxyears">Tax Years</button>
+    </nav>
+
+    <!-- Decision Tool Tab -->
+    <div id="decision-content" class="tab-content active">
+      <div class="grid-2">
+        <!-- Input Panel -->
+        <div class="card">
+          <h2>Monthly Entry</h2>
+          <form id="decisionForm" onsubmit="handleDecisionSubmit(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Month</label>
+                <input type="month" id="entryMonth" required>
+              </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">Fund Values</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equity Fund</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="entryEquity" value="250000" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Bond Fund</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="entryBond" value="200000" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Cash Fund</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="entryCash" value="50000" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>ISA Balance</label>
+                <div class="input-with-unit">
+                  <span class="unit">£</span>
+                  <input type="number" id="entryISA" value="0">
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px; display: flex; gap: 12px;">
+              <button type="submit">Calculate</button>
+              <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Output Panel -->
+        <div id="decisionOutput">
+          <div class="card">
+            <div class="loading">
+              <p>Enter your fund values and click Calculate to see your recommendation.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stress Tester Tab -->
+    <div id="stress-content" class="tab-content">
+      <div class="card">
+        <h2>Monte Carlo Simulation</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Starting Equity</label>
+            <div class="input-with-unit">
+              <span class="unit">£</span>
+              <input type="number" id="mcEquity" value="250000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Starting Bond</label>
+            <div class="input-with-unit">
+              <span class="unit">£</span>
+              <input type="number" id="mcBond" value="200000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Starting Cash</label>
+            <div class="input-with-unit">
+              <span class="unit">£</span>
+              <input type="number" id="mcCash" value="50000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Simulation Years</label>
+            <input type="number" id="mcYears" value="35">
+          </div>
+        </div>
+        <div style="margin-top: 20px; display: flex; gap: 12px;">
+          <button onclick="runMonteCarloUI()">Run Monte Carlo (1000 runs)</button>
+          <button class="secondary" onclick="runHistoricalUI()">Run Historical</button>
+          <button class="secondary" onclick="runScenariosUI()">Run Scenarios</button>
+        </div>
+      </div>
+
+      <div id="stressResults"></div>
+    </div>
+
+    <!-- History Tab -->
+    <div id="history-content" class="tab-content">
+      <div class="card">
+        <h2>Decision History</h2>
+        <div id="historyList">
+          <p class="loading">No history entries yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tax Years Tab -->
+    <div id="taxyears-content" class="tab-content">
+      <div class="card">
+        <h2>Tax Year Configuration</h2>
+        <div id="taxYearsList"></div>
+        <button style="margin-top: 20px;" onclick="addTaxYear()">Add Tax Year</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tooltip for charts -->
+  <div id="chartTooltip"></div>
+
+  <!-- Version display -->
+  <div class="version" id="versionDisplay">Loading...</div>
+
+  <!-- Application Script -->
+</body>
+</html>
