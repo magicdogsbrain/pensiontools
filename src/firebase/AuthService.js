@@ -202,3 +202,6 @@ export function getUserInfo() {
     emailVerified: currentUser.emailVerified
   };
 }
+
+// Auto-initialize auth state listener when module loads
+initAuthStateListener();
