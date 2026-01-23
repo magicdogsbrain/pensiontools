@@ -1457,15 +1457,18 @@
         const taxYear = String(taxYearStart % 100).padStart(2, '0') + '/' + String((taxYearStart + 1) % 100).padStart(2, '0');
 
         // Save the initial tax year with wizard data
-        await saveTaxYearConfig(taxYear, {
+        const taxYearData = {
           pa: 12570,
           brl: 50270,
           hrl: 125140,
           cpi: 0.025,
           other: wizardData.otherIncome || 0,
           statePension: wizardData.statePension || 0
-        });
-        console.log(`Created initial tax year ${taxYear} with other=${wizardData.otherIncome}, statePension=${wizardData.statePension}`);
+        };
+        console.log('Wizard data received:', JSON.stringify(wizardData));
+        console.log(`Creating tax year ${taxYear} with:`, JSON.stringify(taxYearData));
+        await saveTaxYearConfig(taxYear, taxYearData);
+        console.log(`Tax year ${taxYear} saved successfully`);
 
         // Pre-fill form with wizard values
         document.getElementById('entryEquity').value = wizardData.decisionEquity;
