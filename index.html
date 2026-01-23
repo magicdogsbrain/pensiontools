@@ -320,13 +320,15 @@
       height: auto;
     }
     .chart-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 20px;
       margin-bottom: 20px;
     }
-    @media (max-width: 768px) {
-      .chart-row { grid-template-columns: 1fr; }
+    .chart-row canvas {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 400px;
     }
 
     /* Data table */
@@ -1146,8 +1148,10 @@
 
     /**
      * Show the main application
+     * @param {object} user - Firebase user object
+     * @param {string} initialTab - Which tab to show ('decision' or 'stress')
      */
-    function showMainApp(user) {
+    function showMainApp(user, initialTab = 'decision') {
       hideAuthScreen();
       hideSetupWizard();
       document.getElementById('mainApp').classList.remove('hidden');
@@ -1158,6 +1162,16 @@
       // Load initial data
       renderHistory();
       renderTaxYears();
+
+      // Switch to the requested tab
+      if (initialTab === 'stress') {
+        // Activate stress tab
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.tab[data-tab="stress"]').classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById('stress-content').classList.add('active');
+        loadStressSettings();
+      }
     }
 
     /**
@@ -1205,9 +1219,9 @@
         console.error('Error saving wizard settings:', error);
       }
 
-      // Show main app
+      // Show main app - go to STRESS TESTER for new users after wizard
       const user = getCurrentUser();
-      showMainApp(user);
+      showMainApp(user, 'stress');
     }
 
     /**
@@ -1533,10 +1547,15 @@
 
           // Run simulations for each allocation
           const runSimForAlloc = (alloc) => {
+            // IMPORTANT: Pass allocation as BOTH start values AND minimums
+            // The minimums determine when protection triggers during simulation
             const config = {
               equityStart: alloc.equity,
               bondStart: alloc.bond,
               cashStart: alloc.cash,
+              equityMin: alloc.equity,
+              bondMin: alloc.bond,
+              cashTarget: alloc.cash,
               years
             };
 
@@ -1559,16 +1578,35 @@
           const originalResult = runSimForAlloc({ equity: originalEquity, bond: originalBond, cash: originalCash });
 
           // Test all allocations and find best
+          // Priority: Best success rate with similar or less protection
+          // Secondary: Allow slightly more protection (+20%) if significantly better success (+3%)
           let bestResult = null;
+          let bestAltResult = null;  // Alternative with higher protection
+
           allocations.forEach(alloc => {
             const result = runSimForAlloc(alloc);
-            // Only consider if protection is not worse
-            if (result.avgProt <= originalResult.avgProt) {
+
+            // Primary: same or less protection
+            if (result.avgProt <= originalResult.avgProt + 0.5) {
               if (!bestResult || result.rate > bestResult.rate) {
                 bestResult = result;
               }
             }
+
+            // Secondary: allow up to 20% more protection if success is 3%+ better
+            const protIncrease = result.avgProt - originalResult.avgProt;
+            const successIncrease = result.rate - originalResult.rate;
+            if (protIncrease <= originalResult.avgProt * 0.2 + 2 && successIncrease >= 3) {
+              if (!bestAltResult || result.rate > bestAltResult.rate) {
+                bestAltResult = result;
+              }
+            }
           });
+
+          // If no primary result found or alt is significantly better, use alt
+          if (!bestResult || (bestAltResult && bestAltResult.rate > bestResult.rate + 2)) {
+            bestResult = bestAltResult || bestResult;
+          }
 
           // Render results
           renderOptimisationResults(testType, originalResult, bestResult, totalFunds, resultsDiv);

@@ -320,13 +320,15 @@
       height: auto;
     }
     .chart-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 20px;
       margin-bottom: 20px;
     }
-    @media (max-width: 768px) {
-      .chart-row { grid-template-columns: 1fr; }
+    .chart-row canvas {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 400px;
     }
 
     /* Data table */
@@ -565,7 +567,7 @@
       pointer-events: none;
     }
   </style>
-  <script type="module" crossorigin src="./assets/main-DoGsyEEa.js"></script>
+  <script type="module" crossorigin src="./assets/main-BKYUPPvJ.js"></script>
 </head>
 <body>
   <!-- Auth Screen Container (shown first) -->
