@@ -42,7 +42,8 @@ import {
   getAllTaxYears,
   getHistory,
   getHistoryAsync,
-  addHistoryRecord
+  addHistoryRecord,
+  invalidateCache
 } from './storage/DecisionRepository.js';
 
 import {
@@ -310,6 +311,7 @@ export {
   getStressSettings,
   getStressSettingsAsync,
   saveStressSettings,
+  invalidateCache,
 
   // Utils
   getTaxYear,

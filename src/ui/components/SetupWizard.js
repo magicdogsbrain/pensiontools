@@ -32,6 +32,31 @@ let currentPhase = 'intro'; // 'intro', 'stress', 'decision'
 let currentStep = 1;
 
 /**
+ * Reset wizard state to initial values
+ */
+function resetWizardState() {
+  currentPhase = 'intro';
+  currentStep = 1;
+  wizardData = {
+    introDone: false,
+    baseSalary: 30000,
+    otherIncome: 0,
+    statePension: 12000,
+    statePensionYear: 12,
+    equityMin: 250000,
+    bondMin: 200000,
+    cashTarget: 50000,
+    duration: 35,
+    taxMode: 'inflates',
+    decisionSalary: 30000,
+    decisionEquity: 250000,
+    decisionBond: 200000,
+    decisionCash: 50000,
+    decisionDuration: 35
+  };
+}
+
+/**
  * Initialize the setup wizard
  * @param {HTMLElement} container - Container element
  * @param {Function} onComplete - Callback when wizard completes
@@ -39,6 +64,8 @@ let currentStep = 1;
 export function initSetupWizard(container, onComplete) {
   wizardElement = container;
   onCompleteCallback = onComplete;
+  // Reset to beginning on every init
+  resetWizardState();
   renderWizard();
 }
 

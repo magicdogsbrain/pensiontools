@@ -1094,6 +1094,7 @@
       getAllTaxYears,
       getHistory,
       getHistoryAsync,
+      invalidateCache,
       getStressSettings,
       getStressSettingsAsync,
       saveStressSettings,
@@ -1562,10 +1563,13 @@
         await wipeAllUserData();
         console.log('Data wiped successfully');
 
+        // Invalidate all caches
+        invalidateCache();
+
         // Clear local storage too
         localStorage.clear();
 
-        // Hide main app and show wizard
+        // Hide main app and show wizard from the beginning
         document.getElementById('mainApp').classList.add('hidden');
         document.getElementById('setupWizard').style.display = 'block';
         initSetupWizard(document.getElementById('setupWizard'), handleWizardComplete);
