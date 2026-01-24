@@ -2588,18 +2588,35 @@
           originalResult.medianFinal = origSimResult.medianFinal;
           originalResult.p90Final = origSimResult.p90Final;
 
+          console.log('=== OPTIMIZATION DEBUG ===');
+          console.log('Settings:', s);
+          console.log('Original allocation:', origAlloc);
+          console.log('Original result:', originalResult);
+          console.log('Testing', allocations.length, 'allocations...');
+
           // Test each allocation - only consider if protection is not worse than original
+          let testedCount = 0;
+          let betterCount = 0;
+          let acceptableCount = 0;
+
           allocations.forEach(alloc => {
             const result = runSimForAlloc(alloc);
+            testedCount++;
 
             // Only consider this allocation if it doesn't use MORE protection than original
             if (result.avgProt <= originalResult.avgProt) {
+              acceptableCount++;
               // Pick the one with highest success rate (among those with acceptable protection)
               if (!bestResult || result.rate > bestResult.rate) {
+                if (result.rate > originalResult.rate) betterCount++;
                 bestResult = result;
               }
             }
           });
+
+          console.log('Tested:', testedCount, 'Acceptable protection:', acceptableCount, 'Better rate:', betterCount);
+          console.log('Best result:', bestResult);
+          console.log('Best rate > Original rate?', bestResult ? bestResult.rate > originalResult.rate : 'no best');
 
           // Display results
           let h = '';
