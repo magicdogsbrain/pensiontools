@@ -125,7 +125,12 @@ export function calculateDecision(params) {
     inProtection: protectionStatus.inProtection,
     protectionFactor: settings.protectionFactor,
     adjEquityMin: glidepaths.equity,
-    adjBondMin: glidepaths.bond
+    adjBondMin: glidepaths.bond,
+    // Year-level ISA parameters from wizard
+    isTaxEfficientYear: taxYearConfig.isTaxEfficient !== false,
+    yearlyIsaSavingsAllocation: taxYearConfig.isaSavingsAllocation || 0,
+    cumulativeIsaSavingsUsed: taxYearConfig.isaSavingsUsed || 0,
+    grossIncomeToDate: taxYearConfig.grossIncomeToDate || 0
   });
 
   // Determine withdrawal source
@@ -220,6 +225,21 @@ export function calculateDecision(params) {
 
     // Alerts
     alerts,
+
+    // Year-level ISA/Savings tracking
+    yearlyIsaSavingsAllocation: recommendation.yearlyIsaSavingsAllocation,
+    cumulativeIsaSavingsUsed: recommendation.newCumulativeIsaSavingsUsed,  // After this month's draw
+    isTaxEfficientYear: recommendation.isTaxEfficientYear,
+
+    // Tax tracking
+    taxPaidYTD: recommendation.taxInfo.taxPaidYTD || 0,
+    taxProjectedAnnual: recommendation.taxInfo.taxProjectedAnnual || 0,
+    taxSavedMonthly: recommendation.taxInfo.taxSavedMonthly || 0,
+    taxSavedYTD: recommendation.taxInfo.taxSavedYTD || 0,
+    taxSavedProjectedAnnual: recommendation.taxInfo.taxSavedAnnual || 0,
+
+    // Protection-induced efficiency
+    protectionInducedTaxEfficiency: recommendation.protectionInducedTaxEfficiency || false,
 
     // Debug/calculation details
     calculationDetails: {
@@ -320,7 +340,12 @@ export async function calculateDecisionAsync(params) {
     inProtection: protectionStatus.inProtection,
     protectionFactor: settings.protectionFactor,
     adjEquityMin: glidepaths.equity,
-    adjBondMin: glidepaths.bond
+    adjBondMin: glidepaths.bond,
+    // Year-level ISA parameters from wizard
+    isTaxEfficientYear: taxYearConfig.isTaxEfficient !== false,
+    yearlyIsaSavingsAllocation: taxYearConfig.isaSavingsAllocation || 0,
+    cumulativeIsaSavingsUsed: taxYearConfig.isaSavingsUsed || 0,
+    grossIncomeToDate: taxYearConfig.grossIncomeToDate || 0
   });
 
   // Determine withdrawal source
@@ -392,6 +417,22 @@ export async function calculateDecisionAsync(params) {
     rebalanceNeeded: rebalanceActions.length > 0,
     rebalanceActions: rebalanceActions.map(a => a.action),
     alerts,
+
+    // Year-level ISA/Savings tracking
+    yearlyIsaSavingsAllocation: recommendation.yearlyIsaSavingsAllocation,
+    cumulativeIsaSavingsUsed: recommendation.newCumulativeIsaSavingsUsed,  // After this month's draw
+    isTaxEfficientYear: recommendation.isTaxEfficientYear,
+
+    // Tax tracking
+    taxPaidYTD: recommendation.taxInfo.taxPaidYTD || 0,
+    taxProjectedAnnual: recommendation.taxInfo.taxProjectedAnnual || 0,
+    taxSavedMonthly: recommendation.taxInfo.taxSavedMonthly || 0,
+    taxSavedYTD: recommendation.taxInfo.taxSavedYTD || 0,
+    taxSavedProjectedAnnual: recommendation.taxInfo.taxSavedAnnual || 0,
+
+    // Protection-induced efficiency
+    protectionInducedTaxEfficiency: recommendation.protectionInducedTaxEfficiency || false,
+
     calculationDetails: {
       mode: recommendation.mode,
       reason: recommendation.reason,
