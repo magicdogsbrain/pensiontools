@@ -830,6 +830,34 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Global loading overlay */
+    #globalLoadingOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    #globalLoadingOverlay.active {
+      display: flex;
+    }
+    #globalLoadingOverlay .spinner {
+      width: 40px;
+      height: 40px;
+      margin-right: 0;
+      margin-bottom: 16px;
+    }
+    #globalLoadingOverlay .loading-text {
+      color: var(--text);
+      font-size: 14px;
+    }
+
     /* Tooltip */
     #chartTooltip {
       display: none;
@@ -858,6 +886,12 @@
   </style>
 </head>
 <body>
+  <!-- Global Loading Overlay -->
+  <div id="globalLoadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading...</div>
+  </div>
+
   <!-- Auth Screen Container (shown first) -->
   <div id="authScreen"></div>
 
@@ -1451,6 +1485,21 @@
     styleEl.textContent = getDecisionPanelStyles() + getAuthScreenStyles() + getSetupWizardStyles() + getChartStyles();
     document.head.appendChild(styleEl);
 
+    // ============================================================
+    // Loading Overlay Utilities
+    // ============================================================
+    const loadingOverlay = document.getElementById('globalLoadingOverlay');
+    const loadingText = loadingOverlay.querySelector('.loading-text');
+
+    function showLoading(message = 'Loading...') {
+      loadingText.textContent = message;
+      loadingOverlay.classList.add('active');
+    }
+
+    function hideLoading() {
+      loadingOverlay.classList.remove('active');
+    }
+
     // Display version
     document.getElementById('versionDisplay').textContent = `v${VERSION}`;
 
@@ -1841,6 +1890,50 @@
       }
     });
 
+    // ============================================================
+    // Inactivity Timeout - Auto logout after 1 hour of inactivity
+    // ============================================================
+    const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour in milliseconds
+    let inactivityTimer = null;
+    let warningShown = false;
+
+    function resetInactivityTimer() {
+      // Clear any existing timer
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      warningShown = false;
+
+      // Only set timer if user is logged in
+      if (!isLoggedIn()) return;
+
+      // Set new timer
+      inactivityTimer = setTimeout(async () => {
+        // Double-check user is still logged in
+        if (isLoggedIn()) {
+          alert('You have been logged out due to inactivity (1 hour).');
+          try {
+            await logOut();
+            document.getElementById('mainApp').classList.add('hidden');
+            showAuthScreen();
+          } catch (error) {
+            console.error('Auto-logout error:', error);
+          }
+        }
+      }, INACTIVITY_TIMEOUT);
+    }
+
+    // Track user activity
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+    activityEvents.forEach(event => {
+      document.addEventListener(event, () => {
+        resetInactivityTimer();
+      }, { passive: true });
+    });
+
+    // Start the inactivity timer when app loads (if logged in)
+    resetInactivityTimer();
+
     // Reset button handler - wipes all data and shows wizard
     document.getElementById('resetBtn').addEventListener('click', async () => {
       const confirmed = confirm(
@@ -1899,13 +1992,13 @@
         // Load content if needed (async)
         if (tab.dataset.tab === 'history') await renderHistory();
         if (tab.dataset.tab === 'taxyears') await renderTaxYears();
-        if (tab.dataset.tab === 'stress') loadStressSettings();
+        if (tab.dataset.tab === 'stress') await loadStressSettings();
       });
     });
 
     // Stress tester sub-tab switching
     document.querySelectorAll('.sub-tab[data-stresstab]').forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         // Update sub-tab buttons
         document.querySelectorAll('.sub-tab[data-stresstab]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
@@ -1916,13 +2009,13 @@
 
         // Only reload settings when explicitly switching to settings tab
         // Don't overwrite test inputs - user may have entered custom values to test
-        if (tab.dataset.stresstab === 'stresssettings') loadStressSettings();
+        if (tab.dataset.stresstab === 'stresssettings') await loadStressSettings();
       });
     });
 
     // Decision tool sub-tab switching
     document.querySelectorAll('.sub-tab[data-decisiontab]').forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         // Update sub-tab buttons
         document.querySelectorAll('.sub-tab[data-decisiontab]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
@@ -1932,7 +2025,7 @@
         document.getElementById(`decision-${tab.dataset.decisiontab}`).classList.remove('hidden');
 
         // Load settings when switching to settings tab
-        if (tab.dataset.decisiontab === 'decisionsettings') loadDecisionSettings();
+        if (tab.dataset.decisiontab === 'decisionsettings') await loadDecisionSettings();
       });
     });
 
@@ -2466,8 +2559,9 @@
 
       resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Testing allocations...</div>';
 
-      // Pre-load settings for the simulation config
-      const s = await getStressSettingsAsync();
+      // Pre-load settings for the simulation config - make a deep copy to avoid closure issues
+      const settingsRaw = await getStressSettingsAsync();
+      const s = JSON.parse(JSON.stringify(settingsRaw));
 
       // Use setTimeout to allow UI to update
       setTimeout(() => {
@@ -2588,35 +2682,18 @@
           originalResult.medianFinal = origSimResult.medianFinal;
           originalResult.p90Final = origSimResult.p90Final;
 
-          console.log('=== OPTIMIZATION DEBUG ===');
-          console.log('Settings:', s);
-          console.log('Original allocation:', origAlloc);
-          console.log('Original result:', originalResult);
-          console.log('Testing', allocations.length, 'allocations...');
-
           // Test each allocation - only consider if protection is not worse than original
-          let testedCount = 0;
-          let betterCount = 0;
-          let acceptableCount = 0;
-
           allocations.forEach(alloc => {
             const result = runSimForAlloc(alloc);
-            testedCount++;
 
             // Only consider this allocation if it doesn't use MORE protection than original
             if (result.avgProt <= originalResult.avgProt) {
-              acceptableCount++;
               // Pick the one with highest success rate (among those with acceptable protection)
               if (!bestResult || result.rate > bestResult.rate) {
-                if (result.rate > originalResult.rate) betterCount++;
                 bestResult = result;
               }
             }
           });
-
-          console.log('Tested:', testedCount, 'Acceptable protection:', acceptableCount, 'Better rate:', betterCount);
-          console.log('Best result:', bestResult);
-          console.log('Best rate > Original rate?', bestResult ? bestResult.rate > originalResult.rate : 'no best');
 
           // Display results
           let h = '';
@@ -2985,6 +3062,7 @@
 
     // Load stress settings into UI
     async function loadStressSettings() {
+      showLoading('Loading settings...');
       try {
         const s = await getStressSettingsAsync();
         document.getElementById('ssBaseSalary').value = s.baseSalary;
@@ -3009,6 +3087,8 @@
         refreshNumberOverlays();
       } catch (error) {
         console.error('Error loading stress settings:', error);
+      } finally {
+        hideLoading();
       }
     }
 
@@ -3019,6 +3099,7 @@
         return;
       }
 
+      showLoading('Saving settings...');
       try {
         await saveStressSettings({
           baseSalary: +document.getElementById('ssBaseSalary').value,
@@ -3043,6 +3124,8 @@
       } catch (error) {
         console.error('Error saving stress settings:', error);
         alert('Error saving: ' + error.message);
+      } finally {
+        hideLoading();
       }
     };
 
@@ -3050,6 +3133,7 @@
     window.resetStressSettingsUI = async function() {
       if (!confirm('Reset all stress settings to defaults?')) return;
 
+      showLoading('Resetting settings...');
       try {
         await resetStressSettings();
         await loadStressSettings();
@@ -3057,11 +3141,14 @@
       } catch (error) {
         console.error('Error resetting settings:', error);
         alert('Error resetting: ' + error.message);
+      } finally {
+        hideLoading();
       }
     };
 
     // Load decision settings into UI
     async function loadDecisionSettings() {
+      showLoading('Loading settings...');
       try {
         const s = await getDecisionSettingsAsync();
         document.getElementById('dsEquityMin').value = s.equityMin || 250000;
@@ -3082,6 +3169,8 @@
         refreshNumberOverlays();
       } catch (error) {
         console.error('Error loading decision settings:', error);
+      } finally {
+        hideLoading();
       }
     }
 
@@ -3092,6 +3181,7 @@
         return;
       }
 
+      showLoading('Saving settings...');
       try {
         await saveDecisionSettings({
           equityMin: +document.getElementById('dsEquityMin').value,
@@ -3109,6 +3199,8 @@
       } catch (error) {
         console.error('Error saving decision settings:', error);
         alert('Error saving: ' + error.message);
+      } finally {
+        hideLoading();
       }
     };
 
@@ -3116,6 +3208,7 @@
     window.resetDecisionSettingsUI = async function() {
       if (!confirm('Reset all decision settings to defaults?')) return;
 
+      showLoading('Resetting settings...');
       try {
         await saveDecisionSettings({
           equityMin: 250000,
@@ -3132,6 +3225,8 @@
       } catch (error) {
         console.error('Error resetting settings:', error);
         alert('Error resetting: ' + error.message);
+      } finally {
+        hideLoading();
       }
     };
 

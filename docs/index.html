@@ -830,6 +830,34 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Global loading overlay */
+    #globalLoadingOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    #globalLoadingOverlay.active {
+      display: flex;
+    }
+    #globalLoadingOverlay .spinner {
+      width: 40px;
+      height: 40px;
+      margin-right: 0;
+      margin-bottom: 16px;
+    }
+    #globalLoadingOverlay .loading-text {
+      color: var(--text);
+      font-size: 14px;
+    }
+
     /* Tooltip */
     #chartTooltip {
       display: none;
@@ -856,9 +884,15 @@
       pointer-events: none;
     }
   </style>
-  <script type="module" crossorigin src="./assets/main-DP9VNu1o.js"></script>
+  <script type="module" crossorigin src="./assets/main-D4a2KPp0.js"></script>
 </head>
 <body>
+  <!-- Global Loading Overlay -->
+  <div id="globalLoadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading...</div>
+  </div>
+
   <!-- Auth Screen Container (shown first) -->
   <div id="authScreen"></div>
 
