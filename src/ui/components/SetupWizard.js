@@ -12,8 +12,9 @@ let wizardData = {
   // Stress tester settings
   baseSalary: 30000,
   otherIncome: 0,
-  statePension: 12000,
-  statePensionYear: 12,
+  // State Pension - from HMRC forecast
+  spStartDate: '',      // e.g. "21 April 2037"
+  spWeeklyAmount: 0,    // e.g. 230.25
   equityMin: 250000,
   bondMin: 200000,
   cashTarget: 50000,
@@ -41,8 +42,8 @@ function resetWizardState() {
     introDone: false,
     baseSalary: 30000,
     otherIncome: 0,
-    statePension: 12000,
-    statePensionYear: 12,
+    spStartDate: '',
+    spWeeklyAmount: 0,
     equityMin: 250000,
     bondMin: 200000,
     cashTarget: 50000,
@@ -255,22 +256,27 @@ function renderStressStep(step) {
         <div class="wizard-step">
           <div class="wizard-step-title">What about the State Pension?</div>
           <div class="wizard-step-desc">
-            The full State Pension is currently about £12,000 per year. When do you expect to start receiving it?
+            Get your forecast from <a href="https://www.tax.service.gov.uk/check-your-state-pension/" target="_blank" style="color: var(--primary);">gov.uk/check-your-state-pension</a>
           </div>
 
-          <div class="wizard-input" style="margin-bottom: 12px;">
-            <span class="wizard-unit">£</span>
-            <input type="number" id="wizStatePension" value="${wizardData.statePension}">
-            <span class="wizard-unit">per year</span>
-          </div>
-          <div class="wizard-input">
-            <span class="wizard-unit">Starting in year</span>
-            <input type="number" id="wizStatePensionYear" value="${wizardData.statePensionYear}" style="max-width: 80px;">
-            <span class="wizard-unit">of retirement</span>
+          <div class="wizard-grid">
+            <div class="wizard-grid-item">
+              <label>Start Date (from HMRC)</label>
+              <div class="wizard-input">
+                <input type="text" id="wizSpStartDate" value="${wizardData.spStartDate}" placeholder="e.g. 21 April 2037" style="width: 100%;">
+              </div>
+            </div>
+            <div class="wizard-grid-item">
+              <label>Weekly Amount (from HMRC)</label>
+              <div class="wizard-input">
+                <span class="wizard-unit">£</span>
+                <input type="number" id="wizSpWeeklyAmount" value="${wizardData.spWeeklyAmount || ''}" step="0.01" placeholder="e.g. 230.25">
+              </div>
+            </div>
           </div>
 
           <div class="wizard-example">
-            <strong>Example:</strong> If you're retiring at 55 and get State Pension at 67, enter year 12.
+            <strong>Tip:</strong> Copy the exact date and weekly amount from your HMRC State Pension forecast. Leave blank if you don't have one yet.
           </div>
 
           <div class="wizard-buttons">
@@ -641,11 +647,11 @@ function saveCurrentInputs() {
   const other = document.getElementById('wizOther');
   if (other) wizardData.otherIncome = parseFloat(other.value) || 0;
 
-  const statePension = document.getElementById('wizStatePension');
-  if (statePension) wizardData.statePension = parseFloat(statePension.value) || 12000;
+  const spStartDate = document.getElementById('wizSpStartDate');
+  if (spStartDate) wizardData.spStartDate = spStartDate.value.trim() || '';
 
-  const statePensionYear = document.getElementById('wizStatePensionYear');
-  if (statePensionYear) wizardData.statePensionYear = parseInt(statePensionYear.value) || 12;
+  const spWeeklyAmount = document.getElementById('wizSpWeeklyAmount');
+  if (spWeeklyAmount) wizardData.spWeeklyAmount = parseFloat(spWeeklyAmount.value) || 0;
 
   const equityMin = document.getElementById('wizEquityMin');
   if (equityMin) wizardData.equityMin = parseFloat(equityMin.value) || 250000;
