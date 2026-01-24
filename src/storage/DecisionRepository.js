@@ -266,9 +266,11 @@ export async function getTaxYearConfigAsync(taxYear) {
  * @returns {Promise<void>}
  */
 export async function saveTaxYearConfig(taxYear, config) {
+  console.log(`saveTaxYearConfig: Saving tax year ${taxYear}`, config);
   const db = await loadDecisionDBAsync();
   db.taxYears[taxYear] = { ...getTaxYearConfig(taxYear), ...config };
   await saveDecisionDB(db);
+  console.log(`saveTaxYearConfig: Saved tax year ${taxYear}, yearSetupComplete=${db.taxYears[taxYear].yearSetupComplete}`);
 }
 
 /**
@@ -336,7 +338,9 @@ export async function markYearSetupComplete(taxYear) {
  */
 export async function isYearSetupComplete(taxYear) {
   const config = await getTaxYearConfigAsync(taxYear);
-  return config.yearSetupComplete === true;
+  const isComplete = config.yearSetupComplete === true;
+  console.log(`isYearSetupComplete: Tax year ${taxYear}, yearSetupComplete=${config.yearSetupComplete}, result=${isComplete}`);
+  return isComplete;
 }
 
 /**
