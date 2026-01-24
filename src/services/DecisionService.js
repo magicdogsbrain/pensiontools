@@ -59,11 +59,18 @@ export function calculateDecision(params) {
 
   // Parse date and determine context
   const dateObj = typeof date === 'string' ? parseMonth(date) : date;
+  const dateStr = typeof date === 'string' ? date : date.toISOString().slice(0, 7);
   const taxYear = getTaxYear(dateObj);
   const taxYearConfig = getTaxYearConfig(taxYear);
 
   // Get history for this tax year
   const priorHistory = getTaxYearHistory(taxYear);
+
+  // Calculate cumulative ISA used EXCLUDING the current month (if it exists in history)
+  // This prevents double-counting when recalculating the same month
+  const existingMonthRecord = priorHistory.find(h => h.date === dateStr);
+  const existingMonthIsa = existingMonthRecord?.isa || 0;
+  const cumulativeIsaExcludingCurrentMonth = Math.max(0, (taxYearConfig.isaSavingsUsed || 0) - existingMonthIsa);
 
   // Calculate year number based on tax years recorded
   // This is more accurate than date-based calculation as it reflects actual usage
@@ -129,7 +136,7 @@ export function calculateDecision(params) {
     // Year-level ISA parameters from wizard
     isTaxEfficientYear: taxYearConfig.isTaxEfficient !== false,
     yearlyIsaSavingsAllocation: taxYearConfig.isaSavingsAllocation || 0,
-    cumulativeIsaSavingsUsed: taxYearConfig.isaSavingsUsed || 0,
+    cumulativeIsaSavingsUsed: cumulativeIsaExcludingCurrentMonth,  // Excludes current month to prevent double-counting
     grossIncomeToDate: taxYearConfig.grossIncomeToDate || 0
   });
 
@@ -165,10 +172,10 @@ export function calculateDecision(params) {
     withdrawalSource
   });
 
-  // Build complete decision
+  // Build complete decision (sync version)
   const decision = createDecision({
     // Context
-    date: typeof date === 'string' ? date : date.toISOString().slice(0, 7),
+    date: dateStr,
     taxYear,
     yearNumber: effectiveYearNumber,
     monthInTaxYear: getElapsedTaxYearMonths(dateObj),
@@ -280,11 +287,18 @@ export async function calculateDecisionAsync(params) {
 
   // Parse date and determine context
   const dateObj = typeof date === 'string' ? parseMonth(date) : date;
+  const dateStr = typeof date === 'string' ? date : date.toISOString().slice(0, 7);
   const taxYear = getTaxYear(dateObj);
   const taxYearConfig = await getTaxYearConfigAsync(taxYear);
 
   // Get history for this tax year
   const priorHistory = getTaxYearHistory(taxYear);
+
+  // Calculate cumulative ISA used EXCLUDING the current month (if it exists in history)
+  // This prevents double-counting when recalculating the same month
+  const existingMonthRecord = priorHistory.find(h => h.date === dateStr);
+  const existingMonthIsa = existingMonthRecord?.isa || 0;
+  const cumulativeIsaExcludingCurrentMonth = Math.max(0, (taxYearConfig.isaSavingsUsed || 0) - existingMonthIsa);
 
   // Calculate year number based on tax years recorded
   const allTaxYears = await getAllTaxYearsAsync();
@@ -344,11 +358,11 @@ export async function calculateDecisionAsync(params) {
     // Year-level ISA parameters from wizard
     isTaxEfficientYear: taxYearConfig.isTaxEfficient !== false,
     yearlyIsaSavingsAllocation: taxYearConfig.isaSavingsAllocation || 0,
-    cumulativeIsaSavingsUsed: taxYearConfig.isaSavingsUsed || 0,
+    cumulativeIsaSavingsUsed: cumulativeIsaExcludingCurrentMonth,  // Excludes current month to prevent double-counting
     grossIncomeToDate: taxYearConfig.grossIncomeToDate || 0
   });
 
-  // Determine withdrawal source
+  // Determine withdrawal source (async version)
   const withdrawalSource = determineWithdrawalSource({
     drawAmount: recommendation.monthlySipp + recommendation.boostAmount,
     equity,
@@ -380,9 +394,9 @@ export async function calculateDecisionAsync(params) {
     withdrawalSource
   });
 
-  // Build complete decision
+  // Build complete decision (async version)
   const decision = createDecision({
-    date: typeof date === 'string' ? date : date.toISOString().slice(0, 7),
+    date: dateStr,
     taxYear,
     yearNumber: effectiveYearNumber,
     monthInTaxYear: getElapsedTaxYearMonths(dateObj),
