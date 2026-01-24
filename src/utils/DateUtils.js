@@ -76,13 +76,15 @@ export function getCurrentMonth() {
 }
 
 /**
- * Parses a YYYY-MM string to a Date (first of month)
+ * Parses a YYYY-MM string to a Date (15th of month)
+ * Uses day 15 to avoid edge cases with UK tax year (which starts April 6)
  * @param {string} monthStr - Month in YYYY-MM format
  * @returns {Date} Date object
  */
 export function parseMonth(monthStr) {
   const [year, month] = monthStr.split('-').map(Number);
-  return new Date(year, month - 1, 1);
+  // Use day 15 to avoid edge case where April 1-5 is in previous tax year
+  return new Date(year, month - 1, 15);
 }
 
 /**

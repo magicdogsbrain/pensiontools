@@ -401,7 +401,10 @@ export function buildTaxYearConfig(wizardData) {
     taxEfficiencyChoice,
     grossIncomeToDate,
     startMonth,
-    confirmedSalary
+    confirmedSalary,
+    remainingMonths,
+    statePension,
+    monthlyBreakdown
   } = wizardData;
 
   return {
@@ -427,9 +430,40 @@ export function buildTaxYearConfig(wizardData) {
     // Mid-year start
     grossIncomeToDate: grossIncomeToDate || 0,
     startMonth: startMonth || 4,
+    remainingMonths: remainingMonths || 12,
 
     // Wizard completion
     yearSetupComplete: true,
-    confirmedSalary
+    confirmedSalary,
+
+    // State pension (for reference)
+    statePension: statePension || 0,
+
+    // Monthly breakdown (expected values from wizard)
+    expectedMonthly: monthlyBreakdown ? {
+      sipp: {
+        gross: monthlyBreakdown.sipp?.gross || 0,
+        tax: monthlyBreakdown.sipp?.tax || 0,
+        net: monthlyBreakdown.sipp?.net || 0
+      },
+      other: {
+        gross: monthlyBreakdown.other?.gross || 0,
+        tax: monthlyBreakdown.other?.tax || 0,
+        net: monthlyBreakdown.other?.net || 0
+      },
+      statePension: {
+        gross: monthlyBreakdown.statePension?.gross || 0,
+        tax: monthlyBreakdown.statePension?.tax || 0,
+        net: monthlyBreakdown.statePension?.net || 0
+      },
+      isa: {
+        gross: monthlyBreakdown.isa?.gross || 0,
+        tax: 0,
+        net: monthlyBreakdown.isa?.net || 0
+      },
+      totalGross: monthlyBreakdown.totalGross || 0,
+      totalTax: monthlyBreakdown.totalTax || 0,
+      totalNet: monthlyBreakdown.totalNet || 0
+    } : null
   };
 }

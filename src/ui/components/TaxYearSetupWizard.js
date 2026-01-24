@@ -772,6 +772,19 @@ function saveCurrentInputs() {
 async function finishWizard() {
   saveCurrentInputs();
 
+  // Calculate the monthly breakdown to save
+  const breakdown = calculateMonthlyBreakdown({
+    targetSalary: wizardInputs.confirmedSalary,
+    brl: wizardInputs.brl,
+    pa: wizardInputs.pa,
+    other: wizardInputs.other,
+    statePension: wizardContext.statePension.amount,
+    isaSavingsAllocation: wizardInputs.isaSavingsAllocation,
+    remainingMonths: wizardContext.remainingMonths,
+    grossIncomeToDate: wizardInputs.grossIncomeToDate,
+    isTaxEfficient: wizardInputs.isTaxEfficient
+  });
+
   // Build the tax year config
   const config = buildTaxYearConfig({
     pa: wizardInputs.pa,
@@ -784,7 +797,10 @@ async function finishWizard() {
     taxEfficiencyChoice: wizardInputs.taxEfficiencyChoice,
     grossIncomeToDate: wizardInputs.grossIncomeToDate,
     startMonth: parseInt(wizardContext.selectedMonth.split('-')[1]),
-    confirmedSalary: wizardInputs.confirmedSalary
+    confirmedSalary: wizardInputs.confirmedSalary,
+    remainingMonths: wizardContext.remainingMonths,
+    statePension: wizardContext.statePension.amount,
+    monthlyBreakdown: breakdown
   });
 
   console.log(`Tax Year Wizard: Saving config for ${wizardContext.taxYear}`, config);
