@@ -317,6 +317,34 @@
         font-size: 12px;
       }
 
+      /* Tabs container - scroll hint on mobile */
+      .tabs-wrapper {
+        position: relative;
+      }
+
+      .tabs-wrapper::after {
+        content: '→';
+        position: absolute;
+        top: 50%;
+        right: 4px;
+        transform: translateY(-50%);
+        color: var(--primary);
+        font-size: 16px;
+        font-weight: bold;
+        pointer-events: none;
+        opacity: 0.7;
+        animation: pulse-hint 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse-hint {
+        0%, 100% { opacity: 0.4; transform: translateY(-50%) translateX(0); }
+        50% { opacity: 1; transform: translateY(-50%) translateX(3px); }
+      }
+
+      .tabs-wrapper.scrolled-end::after {
+        display: none;
+      }
+
       /* Tabs - horizontal scroll on mobile */
       .tabs {
         overflow-x: auto;
@@ -324,13 +352,32 @@
         flex-wrap: nowrap;
         gap: 2px;
         padding: 3px;
+        padding-right: 24px; /* Space for scroll hint */
         margin-bottom: 16px;
+        scrollbar-width: thin;
+        position: relative;
+      }
+
+      /* Show scrollbar on mobile for discoverability */
+      .tabs::-webkit-scrollbar {
+        height: 4px;
+      }
+
+      .tabs::-webkit-scrollbar-track {
+        background: var(--card-alt);
+        border-radius: 2px;
+      }
+
+      .tabs::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 2px;
       }
 
       .tab {
         flex-shrink: 0;
-        padding: 10px 16px;
-        font-size: 13px;
+        padding: 8px 12px;
+        font-size: 12px;
+        white-space: nowrap;
       }
 
       /* Sub-tabs grid layout on mobile */
@@ -1452,12 +1499,14 @@
       </header>
 
       <!-- Tabs -->
-      <nav class="tabs">
-        <button class="tab active" data-tab="decision">Decision Tool</button>
-        <button class="tab" data-tab="stress">Stress Tester</button>
-        <button class="tab" data-tab="history">History</button>
-        <button class="tab" data-tab="taxyears">Tax Years</button>
-      </nav>
+      <div class="tabs-wrapper">
+        <nav class="tabs">
+          <button class="tab active" data-tab="decision">Decision</button>
+          <button class="tab" data-tab="stress">Stress Test</button>
+          <button class="tab" data-tab="history">History</button>
+          <button class="tab" data-tab="taxyears">Tax Years</button>
+        </nav>
+      </div>
 
       <!-- Decision Tool Tab -->
       <div id="decision-content" class="tab-content active">
@@ -2550,6 +2599,19 @@
         if (tab.dataset.tab === 'stress') await loadStressSettings();
       });
     });
+
+    // Mobile tabs scroll hint - hide arrow when scrolled to end
+    const tabsNav = document.querySelector('.tabs');
+    const tabsWrapper = document.querySelector('.tabs-wrapper');
+    if (tabsNav && tabsWrapper) {
+      const updateScrollHint = () => {
+        const isAtEnd = tabsNav.scrollLeft + tabsNav.clientWidth >= tabsNav.scrollWidth - 10;
+        tabsWrapper.classList.toggle('scrolled-end', isAtEnd);
+      };
+      tabsNav.addEventListener('scroll', updateScrollHint);
+      // Initial check
+      updateScrollHint();
+    }
 
     // Stress tester sub-tab switching
     document.querySelectorAll('.sub-tab[data-stresstab]').forEach(tab => {
