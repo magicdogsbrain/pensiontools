@@ -49,7 +49,6 @@ export function simulate(config, returns, seed = 0) {
   // Inflation tracking
   const yearlyInf = [];
   let cumInf = 1;
-  let prevInf = 0.025;
 
   // Record initial state
   hist.push({
@@ -95,6 +94,8 @@ export function simulate(config, returns, seed = 0) {
     // Get this year's returns
     const eqReturn = returns.equity[year] || 0;
     const inf = returns.inflation[year] || 0.025;
+    // Previous year's inflation for bond model (matches PWA)
+    const prevInf = year > 0 ? (returns.inflation[year - 1] || 0.025) : inf;
 
     // Calculate glidepath minimums
     const eqMin = calculateGlidepath(config.equityMin, year, config.duration, cumInf, true);
@@ -112,15 +113,13 @@ export function simulate(config, returns, seed = 0) {
       taxYearShortfall += (standardMonthDraw - monthDraw);
     }
 
-    // Apply monthly returns (compounded from annual)
-    const monthlyEqReturn = Math.pow(1 + eqReturn, 1/12) - 1;
-    const monthlyBondReturn = calculateBondReturn(inf, eqReturn, prevInf, rng) / 12;
-    // Cash return: matches PWA - inflation + 1.2% real, min 0.5%
-    const monthlyCashReturn = Math.pow(1 + Math.max(0.005, inf + 0.012), 1/12) - 1;
+    // Apply monthly returns (compounded from annual) - matches PWA exactly
+    const annualBondReturn = calculateBondReturn(inf, eqReturn, prevInf, rng);
+    const annualCashReturn = Math.max(0.005, inf + 0.012);
 
-    equity *= (1 + monthlyEqReturn);
-    bond *= (1 + monthlyBondReturn);
-    cash *= (1 + monthlyCashReturn);
+    equity *= (1 + Math.pow(1 + eqReturn, 1/12) - 1);
+    bond *= (1 + Math.pow(1 + annualBondReturn, 1/12) - 1);
+    cash *= (1 + Math.pow(1 + annualCashReturn, 1/12) - 1);
 
     // HODL fund return (Ruffer-style absolute return)
     if (hodl > 0) {
@@ -140,8 +139,6 @@ export function simulate(config, returns, seed = 0) {
       hodlR = Math.max(-0.08, Math.min(0.18, hodlR));
       hodl *= (1 + Math.pow(1 + hodlR, 1/12) - 1);
     }
-
-    prevInf = inf;
 
     const totalGrowth = equity + bond;
     const minGrowth = eqMin + bdMin;
