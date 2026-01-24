@@ -1042,6 +1042,119 @@
       margin-bottom: 12px;
     }
 
+    /* Mobile dropdown selector for tabs */
+    .mobile-tab-selector {
+      display: none;
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236366f1' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+    }
+
+    .mobile-tab-selector:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* Mobile responsive for tax years and history */
+    @media (max-width: 768px) {
+      .tax-years-full-page,
+      .history-full-page {
+        height: auto;
+        max-height: none;
+      }
+
+      .tax-year-tabs-container,
+      .history-tabs-container {
+        flex-wrap: wrap;
+        padding: 12px 0;
+      }
+
+      .tax-year-tabs,
+      .history-tabs {
+        display: none;
+      }
+
+      .tax-year-scroll-btn,
+      .history-scroll-btn {
+        display: none;
+      }
+
+      .mobile-tab-selector {
+        display: block;
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .tax-year-add-btn {
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      .tax-year-detail,
+      .history-detail {
+        padding: 12px 0;
+      }
+
+      .tax-year-detail-card,
+      .history-detail-card {
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+
+      .tax-year-grid,
+      .history-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .tax-year-field .value,
+      .history-field .value {
+        font-size: 16px;
+      }
+
+      .monthly-breakdown-table th,
+      .monthly-breakdown-table td {
+        padding: 8px 6px;
+        font-size: 12px;
+      }
+
+      .tax-year-actions,
+      .history-actions {
+        flex-direction: column;
+      }
+
+      .tax-year-actions button,
+      .history-actions button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tax-year-grid,
+      .history-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .monthly-breakdown-table {
+        font-size: 11px;
+      }
+
+      .monthly-breakdown-table th,
+      .monthly-breakdown-table td {
+        padding: 6px 4px;
+      }
+    }
+
     /* Data table */
     .data-table {
       border-collapse: collapse;
@@ -1788,13 +1901,17 @@
       <!-- History Tab - Full Page View -->
       <div id="history-content" class="tab-content">
         <div class="history-full-page">
-          <!-- Horizontal scrolling month tabs -->
+          <!-- Horizontal scrolling month tabs (desktop) + dropdown (mobile) -->
           <div class="history-tabs-container">
             <button class="history-scroll-btn left" onclick="scrollHistoryTabs('left')">‹</button>
             <div class="history-tabs" id="historyTabs">
               <!-- Month tabs rendered dynamically -->
             </div>
             <button class="history-scroll-btn right" onclick="scrollHistoryTabs('right')">›</button>
+            <!-- Mobile dropdown selector -->
+            <select class="mobile-tab-selector" id="historyMobileSelector" onchange="selectHistoryEntry(this.value)">
+              <!-- Options rendered dynamically -->
+            </select>
           </div>
 
           <!-- Selected month detail view -->
@@ -1807,13 +1924,17 @@
       <!-- Tax Years Tab - Full Page View -->
       <div id="taxyears-content" class="tab-content">
         <div class="tax-years-full-page">
-          <!-- Horizontal scrolling year tabs -->
+          <!-- Horizontal scrolling year tabs (desktop) + dropdown (mobile) -->
           <div class="tax-year-tabs-container">
             <button class="tax-year-scroll-btn left" onclick="scrollTaxYearTabs('left')">‹</button>
             <div class="tax-year-tabs" id="taxYearTabs">
               <!-- Year tabs rendered dynamically -->
             </div>
             <button class="tax-year-scroll-btn right" onclick="scrollTaxYearTabs('right')">›</button>
+            <!-- Mobile dropdown selector -->
+            <select class="mobile-tab-selector" id="taxYearMobileSelector" onchange="selectTaxYear(this.value)">
+              <!-- Options rendered dynamically -->
+            </select>
             <button class="tax-year-add-btn" onclick="addTaxYear()">+ Add Year</button>
           </div>
 
@@ -3940,9 +4061,26 @@
 
       tabsContainer.innerHTML = tabsHtml;
 
+      // Populate mobile dropdown selector
+      const mobileSelector = document.getElementById('historyMobileSelector');
+      if (mobileSelector) {
+        let optionsHtml = '';
+        allHistoryData.forEach(h => {
+          const dateLabel = formatHistoryTabDate(h.date);
+          const suffix = h.inProtection ? ' (Protection)' : '';
+          optionsHtml += `<option value="${h.date}">${dateLabel}${suffix}</option>`;
+        });
+        mobileSelector.innerHTML = optionsHtml;
+      }
+
       // If no entry selected, select the most recent one
       if (!selectedHistoryDate || !allHistoryData.find(h => h.date === selectedHistoryDate)) {
         selectedHistoryDate = allHistoryData[allHistoryData.length - 1].date;
+      }
+
+      // Update mobile selector value
+      if (mobileSelector) {
+        mobileSelector.value = selectedHistoryDate;
       }
 
       // Render detail view for selected entry
@@ -4219,6 +4357,12 @@
       selectedHistoryDate = dateStr;
       renderHistoryDetail(dateStr);
 
+      // Sync mobile dropdown
+      const mobileSelector = document.getElementById('historyMobileSelector');
+      if (mobileSelector) {
+        mobileSelector.value = dateStr;
+      }
+
       // Scroll tab into view
       const tabsContainer = document.getElementById('historyTabs');
       const activeTab = tabsContainer.querySelector(`.history-tab.active`);
@@ -4322,10 +4466,28 @@
 
       tabsContainer.innerHTML = tabsHtml;
 
+      // Populate mobile dropdown selector
+      const mobileSelector = document.getElementById('taxYearMobileSelector');
+      if (mobileSelector) {
+        let optionsHtml = '';
+        allYears.forEach(ty => {
+          const config = taxYears[ty];
+          const isSetup = config && config.yearSetupComplete;
+          const label = isSetup ? ty : `${ty} (not set up)`;
+          optionsHtml += `<option value="${ty}">${label}</option>`;
+        });
+        mobileSelector.innerHTML = optionsHtml;
+      }
+
       // If no year selected, select the first configured one or current year
       if (!selectedTaxYear) {
         const configuredYears = sortedYears.filter(ty => taxYears[ty]?.yearSetupComplete);
         selectedTaxYear = configuredYears.length > 0 ? configuredYears[configuredYears.length - 1] : currentTaxYear;
+      }
+
+      // Update mobile selector value
+      if (mobileSelector) {
+        mobileSelector.value = selectedTaxYear;
       }
 
       // Render detail view for selected year
@@ -4564,6 +4726,17 @@
       const taxYears = await getAllTaxYearsAsync();
       const decisionSettings = await getDecisionSettingsAsync();
       await renderTaxYearDetail(taxYear, taxYears, decisionSettings);
+
+      // Update tab active state
+      document.querySelectorAll('.tax-year-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.textContent === taxYear);
+      });
+
+      // Sync mobile dropdown
+      const mobileSelector = document.getElementById('taxYearMobileSelector');
+      if (mobileSelector) {
+        mobileSelector.value = taxYear;
+      }
 
       // Scroll tab into view
       const tabsContainer = document.getElementById('taxYearTabs');
