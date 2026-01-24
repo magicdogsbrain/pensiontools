@@ -212,8 +212,13 @@ function renderMidYearIncome() {
  * Step: CPI and Salary
  */
 function renderCpiAndSalary() {
-  const suggestedSalary = wizardContext.suggestedSalary;
-  const prevCpi = (wizardContext.defaults.cpi * 100).toFixed(1);
+  // Use current CPI input if available, otherwise default
+  const currentCpi = wizardInputs.cpi !== undefined ? wizardInputs.cpi : wizardContext.defaults.cpi;
+  const cpiPercent = (currentCpi * 100).toFixed(1);
+
+  // Calculate suggested salary based on current CPI
+  const baseSalary = wizardContext.baseSalary;
+  const suggestedSalary = Math.round(baseSalary * (1 + currentCpi));
 
   return `
     <div class="wizard-step">
@@ -224,13 +229,13 @@ function renderCpiAndSalary() {
 
       <div class="wizard-input" style="margin-bottom: 16px;">
         <span class="wizard-unit">CPI</span>
-        <input type="number" id="wizCPI" value="${prevCpi}" step="0.1" style="max-width: 80px;">
+        <input type="number" id="wizCPI" value="${cpiPercent}" step="0.1" style="max-width: 80px;" onchange="window._updateWizardSalary && window._updateWizardSalary()">
         <span class="wizard-unit">%</span>
       </div>
 
-      <div class="wizard-info-box">
-        <p>Based on ${prevCpi}% inflation, your target salary should be:</p>
-        <p style="font-size: 24px; color: var(--primary); margin: 12px 0;">£${Math.round(suggestedSalary).toLocaleString()}</p>
+      <div class="wizard-info-box" id="salaryInfoBox">
+        <p>Based on <span id="cpiDisplay">${cpiPercent}</span>% inflation, your target salary should be:</p>
+        <p style="font-size: 24px; color: var(--primary); margin: 12px 0;">£<span id="suggestedSalaryDisplay">${suggestedSalary.toLocaleString()}</span></p>
         <p>per year (gross)</p>
       </div>
 
@@ -303,6 +308,7 @@ function renderIsaRequirement() {
   const isaCalc = calculateIsaNeeded({
     targetAnnualGross: wizardInputs.confirmedSalary,
     brl: wizardInputs.brl,
+    pa: wizardInputs.pa,
     other: wizardInputs.other,
     statePension: wizardContext.statePension.amount,
     remainingMonths: wizardContext.remainingMonths,
@@ -414,10 +420,20 @@ function renderTaxEfficiencyDecision() {
   if (validation.sufficient && !validation.isBrlExhausted) {
     wizardInputs.isTaxEfficient = true;
     wizardInputs.taxEfficiencyChoice = 'efficient';
-    // Auto-advance to confirmation
-    currentStep++;
-    renderWizard();
-    return '';
+    // Auto-advance to confirmation - use setTimeout to avoid returning empty
+    setTimeout(() => {
+      currentStep++;
+      renderWizard();
+    }, 0);
+    // Show a brief "processing" message instead of blank
+    return `
+      <div class="wizard-step">
+        <div class="wizard-step-title">Setting Up Tax Efficiency...</div>
+        <div class="wizard-info-box">
+          <p>Your ISA allocation is sufficient for tax efficiency.</p>
+        </div>
+      </div>
+    `;
   }
 
   const shortfallMsg = validation.shortfall > 0
@@ -576,6 +592,32 @@ function attachListeners() {
   buttons.forEach(btn => {
     btn.addEventListener('click', () => handleAction(btn.dataset.action));
   });
+
+  // Setup CPI change handler for dynamic salary update
+  window._updateWizardSalary = function() {
+    const cpiInput = document.getElementById('wizCPI');
+    const salaryInput = document.getElementById('wizSalary');
+    const cpiDisplay = document.getElementById('cpiDisplay');
+    const suggestedDisplay = document.getElementById('suggestedSalaryDisplay');
+
+    if (cpiInput && salaryInput && cpiDisplay && suggestedDisplay) {
+      const cpiPercent = parseFloat(cpiInput.value) || 0;
+      const cpi = cpiPercent / 100;
+      const baseSalary = wizardContext.baseSalary;
+      const suggestedSalary = Math.round(baseSalary * (1 + cpi));
+
+      // Update displays
+      cpiDisplay.textContent = cpiPercent.toFixed(1);
+      suggestedDisplay.textContent = suggestedSalary.toLocaleString();
+
+      // Update the salary input to match suggestion
+      salaryInput.value = suggestedSalary;
+
+      // Store the CPI value
+      wizardInputs.cpi = cpi;
+      wizardInputs.confirmedSalary = suggestedSalary;
+    }
+  };
 }
 
 /**

@@ -82,7 +82,13 @@ export async function getPreviousYearCpi(taxYear) {
 /**
  * Calculates how much ISA/Savings is needed for tax efficiency
  *
- * This is calculated BEFORE the user enters their ISA amount, to guide them.
+ * Target gross represents the income as if it were a fully taxable salary.
+ * We calculate the NET income that target would produce, then determine
+ * how much tax-free ISA is needed to reach that same NET while staying at BRL.
+ *
+ * Example: Target £59,450 gross = £48,238 net (after £11,212 tax)
+ *          At BRL £50,270 = £42,730 net (after £7,540 tax)
+ *          ISA needed = £48,238 - £42,730 = £5,508
  *
  * @param {object} params - Calculation parameters
  * @returns {object} ISA requirement calculation result
@@ -91,11 +97,19 @@ export function calculateIsaNeeded(params) {
   const {
     targetAnnualGross,    // Target annual gross salary
     brl,                  // Basic Rate Limit
+    pa = 12570,           // Personal Allowance
     other = 0,            // Annual other taxable income
     statePension = 0,     // Annual state pension
     remainingMonths,      // Months remaining in tax year
     grossIncomeToDate = 0 // Income already received before starting pension
   } = params;
+
+  // Helper to calculate tax on gross income
+  const calcTax = (gross) => {
+    if (gross <= pa) return 0;
+    if (gross <= brl) return (gross - pa) * 0.2;
+    return (brl - pa) * 0.2 + (gross - brl) * 0.4;
+  };
 
   // Remaining BRL headroom after income-to-date
   const remainingBrlHeadroom = Math.max(0, brl - grossIncomeToDate);
@@ -113,38 +127,50 @@ export function calculateIsaNeeded(params) {
     };
   }
 
-  // Pro-rated amounts for remaining months
-  const monthlyOther = other / 12;
-  const monthlyStatePension = statePension / 12;
-  const monthlyFixedIncome = monthlyOther + monthlyStatePension;
-  const remainingFixedIncome = monthlyFixedIncome * remainingMonths;
+  // If target is at or below BRL, no ISA needed
+  if (targetAnnualGross <= brl) {
+    return {
+      isaNeeded: 0,
+      brlExhausted: false,
+      remainingBrlHeadroom,
+      maxTaxEfficientSalary: brl,
+      reducedSalaryOption: brl,
+      canBeTaxEfficient: true,
+      targetAchievableAtBrl: true,
+      reason: 'Target achievable at BRL without ISA'
+    };
+  }
 
-  // Maximum SIPP that keeps total at/below BRL
-  const maxSippRemaining = Math.max(0, remainingBrlHeadroom - remainingFixedIncome);
+  // Target exceeds BRL - calculate ISA needed based on NET income difference
 
-  // Target income for remaining months (pro-rated from annual)
-  const targetRemainingGross = (targetAnnualGross / 12) * remainingMonths;
+  // Net income if we took full target gross (would pay 40% on excess over BRL)
+  const taxAtTarget = calcTax(targetAnnualGross);
+  const netAtTarget = targetAnnualGross - taxAtTarget;
 
-  // ISA needed = target - fixed income - max SIPP at BRL
-  const isaNeeded = Math.max(0, targetRemainingGross - remainingFixedIncome - maxSippRemaining);
+  // Net income if we stay at BRL (only 20% tax)
+  const taxAtBrl = calcTax(brl);
+  const netAtBrl = brl - taxAtBrl;
 
-  // Calculate if target is achievable at BRL (no ISA needed)
-  const targetAchievableAtBrl = targetRemainingGross <= (maxSippRemaining + remainingFixedIncome);
+  // ISA needed = the NET shortfall (tax-free supplement to match target net)
+  const isaNeededAnnual = Math.max(0, netAtTarget - netAtBrl);
+
+  // Pro-rate for remaining months
+  const isaNeeded = (isaNeededAnnual / 12) * remainingMonths;
 
   return {
     isaNeeded,
+    isaNeededAnnual,
     brlExhausted: false,
     remainingBrlHeadroom,
     maxTaxEfficientSalary: brl,
     reducedSalaryOption: brl,
     canBeTaxEfficient: true,
-    targetAchievableAtBrl,
-    maxSippRemaining,
-    remainingFixedIncome,
-    targetRemainingGross,
-    reason: isaNeeded > 0
-      ? `Need £${Math.round(isaNeeded).toLocaleString()} ISA/Savings for tax efficiency`
-      : 'Target achievable at BRL without ISA'
+    targetAchievableAtBrl: false,
+    netAtTarget,
+    netAtBrl,
+    taxAtTarget,
+    taxAtBrl,
+    reason: `Need £${Math.round(isaNeeded).toLocaleString()} ISA/Savings for tax efficiency`
   };
 }
 
