@@ -503,6 +503,7 @@ function renderConfirmation() {
   const breakdown = calculateMonthlyBreakdown({
     targetSalary: wizardInputs.confirmedSalary,
     brl: wizardInputs.brl,
+    pa: wizardInputs.pa,
     other: wizardInputs.other,
     statePension: wizardContext.statePension.amount,
     isaSavingsAllocation: wizardInputs.isaSavingsAllocation,
@@ -513,6 +514,9 @@ function renderConfirmation() {
 
   const modeLabel = wizardInputs.isTaxEfficient ? 'Tax-Efficient' : 'Tax-Inefficient';
   const modeClass = wizardInputs.isTaxEfficient ? 'success' : 'warning';
+
+  // Format currency helper
+  const fmt = (val) => `£${Math.round(val).toLocaleString()}`;
 
   return `
     <div class="wizard-step">
@@ -534,12 +538,12 @@ function renderConfirmation() {
         ${wizardInputs.grossIncomeToDate > 0 ? `
           <div class="wizard-summary-row">
             <span>Income to Date:</span>
-            <span>£${wizardInputs.grossIncomeToDate.toLocaleString()}</span>
+            <span>${fmt(wizardInputs.grossIncomeToDate)}</span>
           </div>
         ` : ''}
         <div class="wizard-summary-row">
           <span>Target Salary:</span>
-          <span>£${Math.round(wizardInputs.confirmedSalary).toLocaleString()}/year</span>
+          <span>${fmt(wizardInputs.confirmedSalary)}/year</span>
         </div>
         <div class="wizard-summary-row">
           <span>Tax Mode:</span>
@@ -547,21 +551,65 @@ function renderConfirmation() {
         </div>
         <div class="wizard-summary-row">
           <span>ISA Allocation:</span>
-          <span>£${wizardInputs.isaSavingsAllocation.toLocaleString()}</span>
+          <span>${fmt(wizardInputs.isaSavingsAllocation)}</span>
         </div>
       </div>
 
       <div class="wizard-info-box" style="margin-top: 16px;">
-        <strong>Expected Monthly Income:</strong>
-        <div style="margin-top: 8px;">
-          <div>SIPP: £${Math.round(breakdown.monthlySipp).toLocaleString()}</div>
-          ${breakdown.monthlyIsa > 0 ? `<div>ISA: £${Math.round(breakdown.monthlyIsa).toLocaleString()}</div>` : ''}
-          ${breakdown.monthlyOther > 0 ? `<div>Other: £${Math.round(breakdown.monthlyOther).toLocaleString()}</div>` : ''}
-          ${breakdown.monthlyStatePension > 0 ? `<div>State Pension: £${Math.round(breakdown.monthlyStatePension).toLocaleString()}</div>` : ''}
-          <div style="border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px;">
-            <strong>Total: £${Math.round(breakdown.monthlyTotal).toLocaleString()}/month</strong>
-          </div>
-        </div>
+        <strong>Expected Monthly Take-Home:</strong>
+        <table style="width: 100%; margin-top: 12px; font-size: 13px;">
+          <thead>
+            <tr style="text-align: left; color: var(--text-muted);">
+              <th style="padding: 4px 0;">Source</th>
+              <th style="padding: 4px 0; text-align: right;">Gross</th>
+              <th style="padding: 4px 0; text-align: right;">Tax</th>
+              <th style="padding: 4px 0; text-align: right;">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 4px 0;">SIPP</td>
+              <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.sipp.gross)}</td>
+              <td style="padding: 4px 0; text-align: right; color: var(--danger);">-${fmt(breakdown.sipp.tax)}</td>
+              <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.sipp.net)}</td>
+            </tr>
+            ${breakdown.other.gross > 0 ? `
+              <tr>
+                <td style="padding: 4px 0;">Other</td>
+                <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.other.gross)}</td>
+                <td style="padding: 4px 0; text-align: right; color: var(--danger);">-${fmt(breakdown.other.tax)}</td>
+                <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.other.net)}</td>
+              </tr>
+            ` : ''}
+            ${breakdown.statePension.gross > 0 ? `
+              <tr>
+                <td style="padding: 4px 0;">State Pension</td>
+                <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.statePension.gross)}</td>
+                <td style="padding: 4px 0; text-align: right; color: var(--danger);">-${fmt(breakdown.statePension.tax)}</td>
+                <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.statePension.net)}</td>
+              </tr>
+            ` : ''}
+            ${breakdown.isa.net > 0 ? `
+              <tr>
+                <td style="padding: 4px 0;">ISA <span style="color: var(--success);">(tax-free)</span></td>
+                <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.isa.gross)}</td>
+                <td style="padding: 4px 0; text-align: right; color: var(--success);">£0</td>
+                <td style="padding: 4px 0; text-align: right;">${fmt(breakdown.isa.net)}</td>
+              </tr>
+            ` : ''}
+          </tbody>
+          <tfoot>
+            <tr style="border-top: 1px solid var(--border); font-weight: bold;">
+              <td style="padding: 8px 0;">Total</td>
+              <td style="padding: 8px 0; text-align: right;">${fmt(breakdown.totalGross)}</td>
+              <td style="padding: 8px 0; text-align: right; color: var(--danger);">-${fmt(breakdown.totalTax)}</td>
+              <td style="padding: 8px 0; text-align: right; color: var(--success);">${fmt(breakdown.totalNet)}</td>
+            </tr>
+          </tfoot>
+        </table>
+        <p style="margin-top: 12px; font-size: 14px; color: var(--text);">
+          <strong>You'll receive ${fmt(breakdown.totalNet)}/month</strong> in your bank
+        </p>
       </div>
 
       <div class="wizard-buttons">
@@ -739,8 +787,17 @@ async function finishWizard() {
     confirmedSalary: wizardInputs.confirmedSalary
   });
 
-  // Save to repository
-  await saveTaxYearConfig(wizardContext.taxYear, config);
+  console.log(`Tax Year Wizard: Saving config for ${wizardContext.taxYear}`, config);
+
+  try {
+    // Save to repository
+    await saveTaxYearConfig(wizardContext.taxYear, config);
+    console.log(`Tax Year Wizard: Successfully saved config for ${wizardContext.taxYear}`);
+  } catch (error) {
+    console.error(`Tax Year Wizard: Failed to save config for ${wizardContext.taxYear}`, error);
+    alert(`Error saving tax year configuration: ${error.message}`);
+    return;
+  }
 
   // Hide wizard
   hideWizard();

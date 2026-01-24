@@ -277,13 +277,17 @@ export async function getWizardData(selectedMonth) {
 /**
  * Calculates the monthly breakdown for the confirmation step
  *
+ * Shows gross amounts, tax, and net (take-home) for each income source.
+ * ISA is already net (tax-free).
+ *
  * @param {object} params - Confirmed wizard parameters
- * @returns {object} Monthly breakdown
+ * @returns {object} Monthly breakdown with gross, tax, and net values
  */
 export function calculateMonthlyBreakdown(params) {
   const {
     targetSalary,
     brl,
+    pa = 12570,
     other = 0,
     statePension = 0,
     isaSavingsAllocation = 0,
@@ -292,37 +296,90 @@ export function calculateMonthlyBreakdown(params) {
     isTaxEfficient = true
   } = params;
 
-  const monthlyTarget = targetSalary / 12;
-  const monthlyOther = other / 12;
-  const monthlyStatePension = statePension / 12;
-  const monthlyFixedIncome = monthlyOther + monthlyStatePension;
+  // Helper to calculate tax on gross income
+  const calcTax = (gross) => {
+    if (gross <= pa) return 0;
+    if (gross <= brl) return (gross - pa) * 0.2;
+    return (brl - pa) * 0.2 + (gross - brl) * 0.4;
+  };
+
+  const monthlyOtherGross = other / 12;
+  const monthlyStatePensionGross = statePension / 12;
+  const monthlyFixedIncomeGross = monthlyOtherGross + monthlyStatePensionGross;
+
+  let monthlySippGross, monthlyIsaNet;
 
   if (!isTaxEfficient) {
-    // Tax-inefficient mode: full SIPP draw, no ISA
-    const monthlySipp = monthlyTarget - monthlyFixedIncome;
-    return {
-      monthlySipp,
-      monthlyIsa: 0,
-      monthlyOther,
-      monthlyStatePension,
-      monthlyTotal: monthlyTarget,
-      mode: 'tax-inefficient'
-    };
+    // Tax-inefficient mode: full SIPP draw to target, no ISA
+    monthlySippGross = (targetSalary / 12) - monthlyFixedIncomeGross;
+    monthlyIsaNet = 0;
+  } else {
+    // Tax-efficient mode: SIPP capped at BRL, ISA supplements
+    const remainingBrl = Math.max(0, brl - grossIncomeToDate);
+    const maxMonthlySippAtBrl = Math.max(0, (remainingBrl / remainingMonths) - monthlyFixedIncomeGross);
+    monthlySippGross = Math.min((targetSalary / 12) - monthlyFixedIncomeGross, maxMonthlySippAtBrl);
+    monthlyIsaNet = isaSavingsAllocation / remainingMonths;
   }
 
-  // Tax-efficient mode
-  const remainingBrl = Math.max(0, brl - grossIncomeToDate);
-  const maxMonthlySippAtBrl = Math.max(0, (remainingBrl / remainingMonths) - monthlyFixedIncome);
-  const monthlySipp = Math.min(monthlyTarget - monthlyFixedIncome, maxMonthlySippAtBrl);
-  const monthlyIsa = isaSavingsAllocation / remainingMonths;
+  // Calculate annual gross taxable income (SIPP + Other + State Pension)
+  const annualTaxableGross = (monthlySippGross + monthlyFixedIncomeGross) * 12;
+  const annualTax = calcTax(annualTaxableGross);
+  const monthlyTax = annualTax / 12;
+
+  // Calculate net for taxable sources (proportional tax allocation)
+  const totalTaxableGross = monthlySippGross + monthlyFixedIncomeGross;
+  const taxProportion = totalTaxableGross > 0 ? monthlyTax / totalTaxableGross : 0;
+
+  const monthlySippTax = monthlySippGross * taxProportion;
+  const monthlyOtherTax = monthlyOtherGross * taxProportion;
+  const monthlyStatePensionTax = monthlyStatePensionGross * taxProportion;
+
+  const monthlySippNet = monthlySippGross - monthlySippTax;
+  const monthlyOtherNet = monthlyOtherGross - monthlyOtherTax;
+  const monthlyStatePensionNet = monthlyStatePensionGross - monthlyStatePensionTax;
+
+  // Total net (what goes in your pocket)
+  const monthlyTotalNet = monthlySippNet + monthlyOtherNet + monthlyStatePensionNet + monthlyIsaNet;
 
   return {
-    monthlySipp,
-    monthlyIsa,
-    monthlyOther,
-    monthlyStatePension,
-    monthlyTotal: monthlySipp + monthlyIsa + monthlyFixedIncome,
-    mode: 'tax-efficient'
+    // SIPP (taxable)
+    sipp: {
+      gross: monthlySippGross,
+      tax: monthlySippTax,
+      net: monthlySippNet
+    },
+    // Other income (taxable)
+    other: {
+      gross: monthlyOtherGross,
+      tax: monthlyOtherTax,
+      net: monthlyOtherNet
+    },
+    // State pension (taxable)
+    statePension: {
+      gross: monthlyStatePensionGross,
+      tax: monthlyStatePensionTax,
+      net: monthlyStatePensionNet
+    },
+    // ISA (tax-free, already net)
+    isa: {
+      gross: monthlyIsaNet,  // Same as net for ISA
+      tax: 0,
+      net: monthlyIsaNet
+    },
+    // Totals
+    totalGross: monthlySippGross + monthlyOtherGross + monthlyStatePensionGross + monthlyIsaNet,
+    totalTax: monthlyTax,
+    totalNet: monthlyTotalNet,
+
+    // Mode
+    mode: isTaxEfficient ? 'tax-efficient' : 'tax-inefficient',
+
+    // Legacy fields for compatibility
+    monthlySipp: monthlySippGross,
+    monthlyIsa: monthlyIsaNet,
+    monthlyOther: monthlyOtherGross,
+    monthlyStatePension: monthlyStatePensionGross,
+    monthlyTotal: monthlyTotalNet
   };
 }
 
