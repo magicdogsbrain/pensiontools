@@ -2166,8 +2166,13 @@
         // SIPP capped at BRL-optimal level
         const stdSipp = Math.min(monthlyTargetGross - monthlyFixedIncome, maxMonthlySippAtBrl);
 
-        // ISA needed to reach target
-        const isaNeeded = Math.max(0, monthlyTargetGross - monthlyFixedIncome - stdSipp);
+        // ISA needed to reach target NET (not gross)
+        // Target gross gives a certain net. At BRL, we get a different net.
+        // ISA (tax-free) makes up the NET difference.
+        const monthlyTargetNet = grossToNetIncome(target, PA, BRL) / 12;
+        const grossAtBrl = Math.min(target, BRL);
+        const monthlyNetAtBrl = grossToNetIncome(grossAtBrl, PA, BRL) / 12;
+        const isaNeeded = Math.max(0, monthlyTargetNet - monthlyNetAtBrl);
         const isaToUse = Math.min(isaNeeded, monthlyIsaFromAllocation);
         isaSavingsUsedThisMonth = isaToUse;
 
