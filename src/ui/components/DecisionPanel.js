@@ -255,8 +255,15 @@ export function buildDecisionHTML(decision) {
   html += '</div>'; // End tax-comparison
 
   // Effective tax rate
-  if (details.taxInfo) {
+  if (details.taxInfo && typeof details.taxInfo.effectiveRate === 'number' && !isNaN(details.taxInfo.effectiveRate)) {
     const effectiveRate = details.taxInfo.effectiveRate * 100;
+    html += `<div class="effective-rate">
+      <span>Effective Tax Rate:</span>
+      <span class="${effectiveRate <= 20 ? 'success' : effectiveRate <= 40 ? 'warning' : 'danger'}">${effectiveRate.toFixed(1)}%</span>
+    </div>`;
+  } else if (details.taxInfo && details.taxInfo.annualTaxable > 0 && details.taxInfo.annualTax >= 0) {
+    // Calculate from available data if effectiveRate is missing
+    const effectiveRate = (details.taxInfo.annualTax / details.taxInfo.annualTaxable) * 100;
     html += `<div class="effective-rate">
       <span>Effective Tax Rate:</span>
       <span class="${effectiveRate <= 20 ? 'success' : effectiveRate <= 40 ? 'warning' : 'danger'}">${effectiveRate.toFixed(1)}%</span>
