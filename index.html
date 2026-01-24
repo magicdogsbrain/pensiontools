@@ -1604,13 +1604,24 @@
                 <label>Target Gross Salary (£/yr)</label>
                 <input type="number" id="dsBaseSalary" value="30000">
               </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">State Pension (from HMRC Forecast)</h3>
+            <div class="alert alert-info" style="margin-bottom: 16px;">
+              Get your forecast at <a href="https://www.tax.service.gov.uk/check-your-state-pension/" target="_blank" style="color: var(--primary);">gov.uk/check-your-state-pension</a>
+            </div>
+            <div class="form-grid">
               <div class="form-group">
-                <label>State Pension (£/yr today's money)</label>
-                <input type="number" id="dsStatePension" value="12000">
+                <label>State Pension Start Date</label>
+                <input type="text" id="dsSpStartDate" placeholder="e.g. 21 April 2037">
               </div>
               <div class="form-group">
-                <label>Years Until State Pension</label>
-                <input type="number" id="dsStatePensionYear" value="12">
+                <label>Weekly Amount (£)</label>
+                <input type="number" id="dsSpWeeklyAmount" step="0.01" placeholder="e.g. 230.25">
+              </div>
+              <div class="form-group">
+                <label>Annual Amount (calculated)</label>
+                <input type="text" id="dsSpAnnualAmount" readonly style="background: var(--bg); cursor: not-allowed;">
               </div>
             </div>
 
@@ -1883,19 +1894,27 @@
               (But never more than the Basic Rate Limit, to avoid 40% tax)
             </div>
 
-            <h3 style="margin-top: 24px;">Other Pensions (Year 0)</h3>
+            <h3 style="margin-top: 24px;">Other Income (Year 0)</h3>
             <div class="form-grid">
               <div class="form-group">
                 <label>Other Income/Pension (£/yr)</label>
                 <input type="number" id="ssOther" value="0">
               </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">State Pension</h3>
+            <div class="form-grid">
               <div class="form-group">
-                <label>State Pension (£/yr)</label>
-                <input type="number" id="ssStatePension" value="12000">
+                <label>SP Start Date</label>
+                <input type="text" id="ssSpStartDate" placeholder="e.g. 21 April 2037">
               </div>
               <div class="form-group">
-                <label>State Pension Start Year</label>
-                <input type="number" id="ssStatePensionYear" value="12">
+                <label>Weekly Amount (£)</label>
+                <input type="number" id="ssSpWeeklyAmount" step="0.01" placeholder="e.g. 230.25">
+              </div>
+              <div class="form-group">
+                <label>Annual Amount (calculated)</label>
+                <input type="text" id="ssSpAnnualAmount" readonly style="background: var(--bg); cursor: not-allowed;">
               </div>
             </div>
             <div class="alert alert-info" style="margin-top: 12px;">
@@ -2131,6 +2150,38 @@
     document.getElementById('entryMonth').value = getCurrentMonth();
 
     // ============================================================
+    // State Pension Helper Functions
+    // ============================================================
+
+    /**
+     * Update the calculated annual SP amount display
+     * @param {string} prefix - 'ds' for decision settings, 'ss' for stress settings
+     */
+    function updateSpAnnualDisplay(prefix) {
+      const weeklyInput = document.getElementById(prefix + 'SpWeeklyAmount');
+      const annualDisplay = document.getElementById(prefix + 'SpAnnualAmount');
+
+      if (!weeklyInput || !annualDisplay) return;
+
+      const weekly = parseFloat(weeklyInput.value) || 0;
+      const annual = weekly * 52;
+
+      if (weekly > 0) {
+        annualDisplay.value = '£' + annual.toLocaleString('en-GB', { maximumFractionDigits: 2 });
+      } else {
+        annualDisplay.value = '';
+      }
+    }
+
+    // Add event listeners for real-time annual calculation
+    ['ds', 'ss'].forEach(prefix => {
+      const weeklyInput = document.getElementById(prefix + 'SpWeeklyAmount');
+      if (weeklyInput) {
+        weeklyInput.addEventListener('input', () => updateSpAnnualDisplay(prefix));
+      }
+    });
+
+    // ============================================================
     // Number Input Enhancements: Auto-select and Thousand Separators
     // ============================================================
 
@@ -2344,8 +2395,10 @@
         document.getElementById('dsCashTarget').value = decisionSettings.cashTarget || 50000;
         document.getElementById('dsDuration').value = decisionSettings.duration || 35;
         document.getElementById('dsBaseSalary').value = decisionSettings.baseSalary || 30000;
-        document.getElementById('dsStatePension').value = decisionSettings.statePension || 12000;
-        document.getElementById('dsStatePensionYear').value = decisionSettings.statePensionYear || 12;
+        // State Pension (new fields)
+        document.getElementById('dsSpStartDate').value = decisionSettings.spStartDate || '';
+        document.getElementById('dsSpWeeklyAmount').value = decisionSettings.spWeeklyAmount || '';
+        updateSpAnnualDisplay('ds');
         document.getElementById('dsProtectionFactor').value = decisionSettings.protectionFactor || 20;
         document.getElementById('dsRecoveryBuffer').value = decisionSettings.recoveryBuffer || 10000;
         document.getElementById('dsConsecutiveLimit').value = decisionSettings.consecutiveLimit || 3;
@@ -2374,8 +2427,10 @@
         document.getElementById('ssHRL').value = stressSettings.hrl;
         document.getElementById('ssTaxMode').value = stressSettings.taxMode || 'inflates';
         document.getElementById('ssOther').value = stressSettings.other || 0;
-        document.getElementById('ssStatePension').value = stressSettings.statePension || 12000;
-        document.getElementById('ssStatePensionYear').value = stressSettings.statePensionYear || 12;
+        // State Pension (new fields)
+        document.getElementById('ssSpStartDate').value = stressSettings.spStartDate || '';
+        document.getElementById('ssSpWeeklyAmount').value = stressSettings.spWeeklyAmount || '';
+        updateSpAnnualDisplay('ss');
         document.getElementById('ssConsecutiveLimit').value = stressSettings.consecutiveLimit || 3;
         document.getElementById('ssProtectionMult').value = stressSettings.protectionMult || 0.8;
         document.getElementById('ssDisableProtection').checked = stressSettings.disableProtection || false;
@@ -2406,16 +2461,16 @@
           bondMin: wizardData.decisionBond,
           cashTarget: wizardData.decisionCash,
           duration: wizardData.decisionDuration,
-          statePension: wizardData.statePension,
-          statePensionYear: wizardData.statePensionYear
+          spStartDate: wizardData.spStartDate,
+          spWeeklyAmount: wizardData.spWeeklyAmount
         });
 
         // Save stress settings (includes state pension for simulations)
         await saveStressSettings({
           baseSalary: wizardData.baseSalary,
           other: wizardData.otherIncome,
-          statePension: wizardData.statePension,
-          statePensionYear: wizardData.statePensionYear,
+          spStartDate: wizardData.spStartDate,
+          spWeeklyAmount: wizardData.spWeeklyAmount,
           equityMin: wizardData.equityMin,
           bondMin: wizardData.bondMin,
           cashTarget: wizardData.cashTarget,
@@ -2706,20 +2761,10 @@
       const grossIncomeToDate = taxYearConfig.grossIncomeToDate || 0;
       const confirmedSalary = taxYearConfig.confirmedSalary || settings.baseSalary;
 
-      // State pension comes from decision settings, not tax year config
-      // It starts after statePensionYear (e.g., year 12) and inflates with CPI
-      const baseStatePension = settings.statePension || 0;
-      const statePensionStartYear = settings.statePensionYear || 12;
-      let STATE = 0;
-      if (yearNum >= statePensionStartYear && baseStatePension > 0) {
-        // Calculate cumulative inflation up to this year for state pension
-        let spInflation = 1;
-        for (let i = 0; i <= yearNum; i++) {
-          const yStr = String((26 + i) % 100).padStart(2, '0') + '/' + String((27 + i) % 100).padStart(2, '0');
-          spInflation *= 1 + ((allTaxYears[yStr] || {}).cpi || 0.04);
-        }
-        STATE = baseStatePension * spInflation;
-      }
+      // State pension comes from decision settings using HMRC forecast data
+      // Uses the new spStartDate and spWeeklyAmount fields
+      const spInfo = await getStatePensionForTaxYear(taxYear);
+      const STATE = spInfo.amount || 0;
 
       // Calculate cumulative inflation using each year's CPI (PWA logic)
       let cumInf = 1;
@@ -3303,6 +3348,86 @@
       }, 50);
     };
 
+    // Calculate State Pension config for simulation from settings
+    // Converts date-based SP settings to simulation year numbers
+    function calculateSpConfigForSimulation(settings) {
+      // If no SP start date, return empty (legacy format not used)
+      if (!settings.spStartDate || !settings.spWeeklyAmount) {
+        return {
+          spStartYear: 999, // Never starts
+          spWeeklyAmount: 0,
+          spFirstYearRatio: 1
+        };
+      }
+
+      // Parse the SP start date
+      const spDate = parseSpDate(settings.spStartDate);
+      if (!spDate) {
+        return {
+          spStartYear: 999,
+          spWeeklyAmount: 0,
+          spFirstYearRatio: 1
+        };
+      }
+
+      // Current date to calculate years until SP
+      const now = new Date();
+      const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
+      const yearsUntilSp = Math.max(0, (spDate.getTime() - now.getTime()) / msPerYear);
+
+      // The simulation year when SP starts (0-indexed)
+      const spStartYear = Math.floor(yearsUntilSp);
+
+      // Calculate ratio for first partial year
+      // If SP starts mid-year, calculate what fraction of the year they receive
+      const spStartMonth = spDate.getMonth(); // 0-11
+      const spStartDay = spDate.getDate();
+      // Approximate days remaining in year from SP start
+      const daysInYear = 365;
+      const dayOfYear = Math.floor((spDate - new Date(spDate.getFullYear(), 0, 0)) / (24 * 60 * 60 * 1000));
+      const daysRemaining = daysInYear - dayOfYear;
+      const firstYearRatio = daysRemaining / daysInYear;
+
+      return {
+        spStartYear: spStartYear,
+        spWeeklyAmount: settings.spWeeklyAmount,
+        spFirstYearRatio: firstYearRatio
+      };
+    }
+
+    // Helper to parse SP date in various formats
+    function parseSpDate(dateStr) {
+      if (!dateStr) return null;
+
+      // Try ISO format (2037-04-21)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return new Date(dateStr);
+      }
+
+      // Try UK format (21/04/2037)
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+        const [day, month, year] = dateStr.split('/').map(Number);
+        return new Date(year, month - 1, day);
+      }
+
+      // Try natural format (21 April 2037)
+      const months = {
+        january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+        july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+      };
+      const match = dateStr.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/i);
+      if (match) {
+        const day = parseInt(match[1]);
+        const month = months[match[2].toLowerCase()];
+        const year = parseInt(match[3]);
+        if (month !== undefined) {
+          return new Date(year, month, day);
+        }
+      }
+
+      return null;
+    }
+
     // Optimisation tracking
     let optimiseRunning = false;
 
@@ -3386,8 +3511,8 @@
               duration: s.duration,
               baseSalary: s.baseSalary,
               other: s.other,
-              statePension: s.statePension,
-              statePensionYear: s.statePensionYear,
+              // State Pension - calculate start year from date
+              ...calculateSpConfigForSimulation(s),
               pa: s.pa,
               brl: s.brl,
               hrl: s.hrl,
@@ -3854,8 +3979,10 @@
         document.getElementById('ssHRL').value = s.hrl;
         document.getElementById('ssTaxMode').value = s.taxMode || 'inflates';
         document.getElementById('ssOther').value = s.other || 0;
-        document.getElementById('ssStatePension').value = s.statePension || 12000;
-        document.getElementById('ssStatePensionYear').value = s.statePensionYear || 12;
+        // State Pension (new fields)
+        document.getElementById('ssSpStartDate').value = s.spStartDate || '';
+        document.getElementById('ssSpWeeklyAmount').value = s.spWeeklyAmount || '';
+        updateSpAnnualDisplay('ss');
         document.getElementById('ssConsecutiveLimit').value = s.consecutiveLimit || 3;
         document.getElementById('ssProtectionMult').value = s.protectionMult || 0.8;
         document.getElementById('ssDisableProtection').checked = s.disableProtection || false;
@@ -3891,8 +4018,9 @@
           hrl: +document.getElementById('ssHRL').value,
           taxMode: document.getElementById('ssTaxMode').value,
           other: +document.getElementById('ssOther').value,
-          statePension: +document.getElementById('ssStatePension').value,
-          statePensionYear: +document.getElementById('ssStatePensionYear').value,
+          // State Pension (new fields)
+          spStartDate: document.getElementById('ssSpStartDate').value.trim() || null,
+          spWeeklyAmount: +document.getElementById('ssSpWeeklyAmount').value || 0,
           consecutiveLimit: +document.getElementById('ssConsecutiveLimit').value,
           protectionMult: +document.getElementById('ssProtectionMult').value,
           disableProtection: document.getElementById('ssDisableProtection').checked,
@@ -3968,8 +4096,9 @@
           cashTarget: +document.getElementById('dsCashTarget').value,
           duration: +document.getElementById('dsDuration').value,
           baseSalary: +document.getElementById('dsBaseSalary').value,
-          statePension: +document.getElementById('dsStatePension').value,
-          statePensionYear: +document.getElementById('dsStatePensionYear').value,
+          // State Pension (new fields)
+          spStartDate: document.getElementById('dsSpStartDate').value.trim() || null,
+          spWeeklyAmount: +document.getElementById('dsSpWeeklyAmount').value || 0,
           protectionFactor: +document.getElementById('dsProtectionFactor').value,
           recoveryBuffer: +document.getElementById('dsRecoveryBuffer').value,
           consecutiveLimit: +document.getElementById('dsConsecutiveLimit').value
@@ -4465,32 +4594,15 @@
       }
     };
 
-    // Calculate state pension for a specific tax year
-    // Returns the CPI-inflated value if state pension has started, otherwise null
-    function calculateStatePensionForYear(taxYears, yearKey, decisionSettings) {
-      const sortedYears = Object.keys(taxYears).sort();
-      const yearIndex = sortedYears.indexOf(yearKey);
-      const statePensionYear = decisionSettings.statePensionYear || 12;
-      const baseStatePension = decisionSettings.statePension || 0;
-
-      console.log(`State pension calc for ${yearKey}: yearIndex=${yearIndex}, statePensionYear=${statePensionYear}, base=${baseStatePension}`);
-
-      // If state pension hasn't started yet for this year
-      if (yearIndex < statePensionYear) {
-        console.log(`  -> Not started (${yearIndex} < ${statePensionYear})`);
+    // Calculate state pension for a specific tax year (legacy sync wrapper)
+    // Now uses the async getStatePensionForTaxYear internally
+    // Returns the annual value if state pension has started, otherwise null
+    async function calculateStatePensionForYear(taxYears, yearKey, decisionSettings) {
+      const spInfo = await getStatePensionForTaxYear(yearKey);
+      if (!spInfo.isReceiving) {
         return null;
       }
-
-      // Calculate cumulative CPI inflation from year 0 to this year
-      let cumulativeInflation = 1;
-      for (let i = 0; i <= yearIndex; i++) {
-        const tyKey = sortedYears[i];
-        const ty = taxYears[tyKey];
-        cumulativeInflation *= (1 + (ty.cpi || 0.04));
-      }
-
-      console.log(`  -> Started: ${baseStatePension} * ${cumulativeInflation} = ${baseStatePension * cumulativeInflation}`);
-      return baseStatePension * cumulativeInflation;
+      return spInfo.amount;
     }
 
     // Current selected tax year for the detail view
@@ -4608,20 +4720,12 @@
         return;
       }
 
-      const statePensionYear = decisionSettings.statePensionYear || 12;
-      const baseStatePension = decisionSettings.statePension || 0;
-      const sortedYears = Object.keys(allTaxYears).sort();
-      const yearIndex = sortedYears.indexOf(taxYear);
-
-      // Calculate state pension for this year
-      let statePensionValue = 0;
-      if (yearIndex >= statePensionYear && baseStatePension > 0) {
-        let cumInf = 1;
-        for (let i = 0; i <= yearIndex; i++) {
-          cumInf *= 1 + (allTaxYears[sortedYears[i]]?.cpi || 0.04);
-        }
-        statePensionValue = Math.round(baseStatePension * cumInf);
-      }
+      // Calculate state pension for this year using new HMRC-based model
+      const spInfo = await getStatePensionForTaxYear(taxYear);
+      const statePensionValue = Math.round(spInfo.amount || 0);
+      const spStartDate = spInfo.startDate || 'Not configured';
+      const spIsReceiving = spInfo.isReceiving;
+      const spYearsUntil = spInfo.yearsUntil;
 
       const fmt = (val) => val !== undefined && val !== null ? '£' + Math.round(val).toLocaleString() : '—';
       const fmtPct = (val) => val !== undefined && val !== null ? (val * 100).toFixed(1) + '%' : '—';
@@ -4664,7 +4768,7 @@
             </div>
             <div class="tax-year-field">
               <label>State Pension (Annual)</label>
-              <span class="value">${yearIndex >= statePensionYear ? fmt(statePensionValue) : `Starts in year ${statePensionYear} (${statePensionYear - yearIndex} years)`}</span>
+              <span class="value">${spIsReceiving ? fmt(statePensionValue) + (spInfo.isFirstYear ? ' (partial year)' : '') : (spStartDate !== 'Not configured' ? `Starts ${spStartDate}` : 'Not configured')}</span>
             </div>
             <div class="tax-year-field">
               <label>Income Before Pension Start</label>

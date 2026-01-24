@@ -363,10 +363,27 @@ function calculateMonthlyDraw(config, year, cumInf, yearlyInf) {
     other *= (1 + Math.min(inf, 0.04));
   }
 
-  // State pension
-  const statePension = year >= config.statePensionYear
-    ? config.statePension * cumInf
-    : 0;
+  // State pension - supports both legacy (year number) and new (date-based) formats
+  let statePension = 0;
+
+  if (config.spStartYear !== undefined) {
+    // New format: spStartYear is the simulation year (0-indexed) when SP starts
+    // spWeeklyAmount is the weekly amount in today's money
+    if (year >= config.spStartYear && config.spWeeklyAmount > 0) {
+      const spAnnual = config.spWeeklyAmount * 52;
+      // First year might be partial
+      if (year === config.spStartYear && config.spFirstYearRatio !== undefined) {
+        statePension = spAnnual * config.spFirstYearRatio * cumInf;
+      } else {
+        statePension = spAnnual * cumInf;
+      }
+    }
+  } else if (config.statePensionYear !== undefined) {
+    // Legacy format: statePensionYear and statePension (annual)
+    statePension = year >= config.statePensionYear
+      ? (config.statePension || 0) * cumInf
+      : 0;
+  }
 
   // SIPP draw (capped at BRL)
   const fixed = other + statePension;

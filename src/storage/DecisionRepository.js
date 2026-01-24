@@ -37,8 +37,12 @@ function getDefaultDecisionDB() {
       recoveryBuffer: DRAWDOWN_DEFAULTS.RECOVERY_BUFFER,
       consecutiveLimit: DRAWDOWN_DEFAULTS.CONSECUTIVE_LIMIT,
       startDate: null,
-      statePension: 12000,      // Base state pension in today's money
-      statePensionYear: 12      // Years from start until state pension begins
+      // State Pension - from HMRC forecast
+      spStartDate: null,        // Date when SP starts (e.g., "21 April 2037")
+      spWeeklyAmount: 0,        // Weekly SP amount from HMRC forecast
+      // Legacy fields (deprecated, kept for migration)
+      statePension: 0,
+      statePensionYear: 0
     },
     taxYears: {
       // Default tax year with full schema
@@ -481,48 +485,53 @@ export async function wipeAllDecisionData() {
 
 /**
  * Calculates state pension for a given tax year based on settings
- * State pension starts after statePensionYear years from the first tax year
+ * Uses HMRC forecast data: start date and weekly amount
  *
  * @param {string} taxYear - Tax year in 'YY/YY' format
- * @returns {Promise<object>} { amount: number, yearsUntil: number, isReceiving: boolean }
+ * @returns {Promise<object>} { amount, monthly, yearsUntil, isReceiving, isFirstYear, startDate }
  */
 export async function getStatePensionForTaxYear(taxYear) {
   const settings = await getDecisionSettingsAsync();
   const allTaxYears = await getAllTaxYearsAsync();
 
-  const statePensionBase = settings.statePension || 0;
-  const statePensionYear = settings.statePensionYear || 12;
+  // Use new SP fields if available
+  const spStartDate = settings.spStartDate;
+  const spWeeklyAmount = settings.spWeeklyAmount || 0;
 
-  // Calculate which year number this tax year represents
-  const sortedTaxYears = Object.keys(allTaxYears).sort();
-  const yearIndex = sortedTaxYears.indexOf(taxYear);
-
-  // If this tax year doesn't exist yet, it's the next one
-  const effectiveYearNumber = yearIndex >= 0 ? yearIndex : sortedTaxYears.length;
-
-  // Calculate years until state pension
-  const yearsUntil = Math.max(0, statePensionYear - effectiveYearNumber);
-
-  // Is state pension being received this year?
-  const isReceiving = effectiveYearNumber >= statePensionYear;
-
-  // If receiving, calculate inflated amount
-  // State pension inflates with CPI each year from when we started
-  let amount = 0;
-  if (isReceiving) {
-    let cumulativeInflation = 1;
-    for (let i = 0; i < effectiveYearNumber; i++) {
-      const ty = sortedTaxYears[i];
-      const config = allTaxYears[ty];
-      const cpi = config?.cpi || 0.025;
-      cumulativeInflation *= (1 + cpi);
-    }
-    amount = statePensionBase * cumulativeInflation;
+  // If no SP data configured, return zeros
+  if (!spStartDate || !spWeeklyAmount) {
+    return {
+      amount: 0,
+      monthly: 0,
+      yearsUntil: 0,
+      isReceiving: false,
+      isFirstYear: false,
+      startDate: null
+    };
   }
 
+  // Import the calculation utility dynamically to avoid circular deps
+  const { calculateStatePensionForTaxYear, getTimeUntilStatePension, parseStatePensionDate } =
+    await import('../utils/StatePensionUtils.js');
+
+  const result = calculateStatePensionForTaxYear({
+    taxYear,
+    spStartDate,
+    weeklyAmount: spWeeklyAmount,
+    taxYearConfigs: allTaxYears
+  });
+
+  // Calculate years until SP starts
+  const timeUntil = getTimeUntilStatePension(spStartDate);
+
   return {
-    amount,           // Annual amount (0 if not receiving yet)
-    yearsUntil,       // Years until state pension starts
-    isReceiving       // Whether receiving this tax year
+    amount: result.annual,
+    monthly: result.monthly,
+    yearsUntil: timeUntil.years,
+    monthsUntil: timeUntil.months,
+    isReceiving: result.isReceiving,
+    isFirstYear: result.isFirstYear,
+    weeksInYear: result.weeksInYear,
+    startDate: result.startDate
   };
 }
