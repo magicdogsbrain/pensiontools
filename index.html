@@ -1811,30 +1811,10 @@
           taxMode: wizardData.taxMode
         });
 
-        // Create initial tax year based on current date
-        const now = new Date();
-        const currentMonth = now.getMonth() + 1; // 1-12
-        const currentYear = now.getFullYear();
-        // Tax year runs April to March: if month >= 4, we're in YY/YY+1, else YY-1/YY
-        const taxYearStart = currentMonth >= 4 ? currentYear : currentYear - 1;
-        const taxYear = String(taxYearStart % 100).padStart(2, '0') + '/' + String((taxYearStart + 1) % 100).padStart(2, '0');
-
-        // Save the initial tax year with wizard data
-        // Note: statePension is NOT stored per tax year - it's stored in stress settings
-        // with statePensionYear indicating when it starts. The actual value for each
-        // tax year is calculated dynamically based on CPI inflation.
-        const taxYearData = {
-          pa: 12570,
-          brl: 50270,
-          hrl: 125140,
-          cpi: 0.025,
-          other: wizardData.otherIncome || 0
-        };
-        console.log('Wizard data received:', JSON.stringify(wizardData));
-        console.log(`Creating tax year ${taxYear} with:`, JSON.stringify(taxYearData));
-        console.log(`State pension ${wizardData.statePension} starts in year ${wizardData.statePensionYear} (stored in stress settings)`);
-        await saveTaxYearConfig(taxYear, taxYearData);
-        console.log(`Tax year ${taxYear} saved successfully`);
+        // Tax year is NOT created here - the TaxYearSetupWizard will be triggered
+        // when the user first attempts a decision calculation, allowing them to
+        // configure tax thresholds, ISA requirements, and other tax year settings
+        // through the dedicated wizard flow.
 
         // Pre-fill form with wizard values
         document.getElementById('entryEquity').value = wizardData.decisionEquity;
