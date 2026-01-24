@@ -179,7 +179,10 @@ export function decisionToHistory(decision) {
 
     // NEW: Year-level tax efficiency flags
     isTaxEfficientYear: decision.isTaxEfficientYear ?? true,
-    protectionInducedTaxEfficiency: decision.protectionInducedTaxEfficiency || false
+    protectionInducedTaxEfficiency: decision.protectionInducedTaxEfficiency || false,
+
+    // Context
+    remainingMonths: decision.remainingMonths || 12
   };
 }
 

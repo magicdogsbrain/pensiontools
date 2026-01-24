@@ -877,6 +877,171 @@
       margin-top: 20px;
     }
 
+    /* History Full Page View - reuses tax year styles */
+    .history-full-page {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 120px);
+      max-height: 900px;
+    }
+
+    .history-tabs-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .history-scroll-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--border);
+      background: var(--card-alt);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 18px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .history-scroll-btn:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .history-tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      flex: 1;
+      padding: 4px 0;
+      scrollbar-width: none;
+    }
+
+    .history-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .history-tab {
+      padding: 8px 16px;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-size: 13px;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .history-tab:hover {
+      border-color: var(--primary);
+      color: var(--text);
+    }
+
+    .history-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+      font-weight: 500;
+    }
+
+    .history-tab.protection {
+      border-color: var(--warning);
+    }
+
+    .history-tab.protection::after {
+      content: ' ⚠';
+      font-size: 10px;
+    }
+
+    .history-detail {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 0;
+    }
+
+    .history-detail-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .history-detail-card h3 {
+      margin: 0 0 16px 0;
+      color: var(--primary);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .history-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .history-field label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .history-field .value {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .history-field .value.success {
+      color: var(--success);
+    }
+
+    .history-field .value.warning {
+      color: var(--warning);
+    }
+
+    .history-field .value.danger {
+      color: var(--danger);
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .no-history-message {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .no-history-message h3 {
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
     /* Data table */
     .data-table {
       border-collapse: collapse;
@@ -1620,12 +1785,21 @@
         </div>
       </div>
 
-      <!-- History Tab -->
+      <!-- History Tab - Full Page View -->
       <div id="history-content" class="tab-content">
-        <div class="card">
-          <h2>Decision History</h2>
-          <div id="historyList">
-            <p class="loading">No history entries yet.</p>
+        <div class="history-full-page">
+          <!-- Horizontal scrolling month tabs -->
+          <div class="history-tabs-container">
+            <button class="history-scroll-btn left" onclick="scrollHistoryTabs('left')">‹</button>
+            <div class="history-tabs" id="historyTabs">
+              <!-- Month tabs rendered dynamically -->
+            </div>
+            <button class="history-scroll-btn right" onclick="scrollHistoryTabs('right')">›</button>
+          </div>
+
+          <!-- Selected month detail view -->
+          <div class="history-detail" id="historyDetail">
+            <p class="loading">Select a month to view details</p>
           </div>
         </div>
       </div>
@@ -3724,87 +3898,350 @@
       }
     };
 
-    // Render history (async to ensure fresh data from Firebase)
+    // Current selected history entry
+    let selectedHistoryDate = null;
+    let allHistoryData = [];
+
+    // Render history with full-page tabbed view
     async function renderHistory() {
-      const container = document.getElementById('historyList');
-      container.innerHTML = '<p class="loading">Loading history...</p>';
+      const tabsContainer = document.getElementById('historyTabs');
+      const detailContainer = document.getElementById('historyDetail');
 
-      const history = await getHistoryAsync({ sortDesc: true, limit: 50 });
+      if (!tabsContainer || !detailContainer) return;
 
-      if (history.length === 0) {
-        container.innerHTML = '<p class="loading">No history entries yet.</p>';
+      tabsContainer.innerHTML = '<span class="loading">Loading...</span>';
+
+      allHistoryData = await getHistoryAsync({ sortDesc: false, limit: 500 });
+
+      if (allHistoryData.length === 0) {
+        tabsContainer.innerHTML = '';
+        detailContainer.innerHTML = `
+          <div class="no-history-message">
+            <h3>No History Entries</h3>
+            <p>Save decisions from the Decision Tool to build your history.</p>
+          </div>
+        `;
         return;
       }
 
-      let html = '';
-      for (const h of history) {
-        const protectionClass = h.inProtection ? 'protection' : '';
-        const modeClass = h.mode === 'Tax-Efficient' ? 'tax-efficient' : (h.inProtection ? 'protection' : 'standard');
+      // Render month tabs (chronological order)
+      let tabsHtml = '';
+      allHistoryData.forEach(h => {
+        const isActive = h.date === selectedHistoryDate;
+        const classes = ['history-tab'];
+        if (isActive) classes.push('active');
+        if (h.inProtection) classes.push('protection');
 
-        // Format withdrawal source details
-        let sourceDetail = h.source;
-        if (h.source === 'Growth' && (h.dEquity > 0 || h.dBond > 0)) {
-          sourceDetail = `Growth (E:${formatCurrency(h.dEquity || 0)} B:${formatCurrency(h.dBond || 0)})`;
-        } else if (h.source === 'Cash') {
-          sourceDetail = `Cash (${formatCurrency(h.dCash || h.sipp || 0)})`;
-        }
+        // Format date for display
+        const dateLabel = formatHistoryTabDate(h.date);
 
-        html += `
-          <div class="history-item ${protectionClass}" style="margin-bottom:12px;padding:16px;background:var(--card-alt);border-radius:8px;border-left:4px solid ${h.inProtection ? 'var(--warning)' : 'var(--primary)'};">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-              <div>
-                <div style="font-weight:600;color:var(--primary);">${h.date}</div>
-                <div style="font-size:12px;color:var(--text-muted);">${h.taxYear} (Year ${h.yearNum || 0})</div>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <span style="padding:4px 8px;border-radius:4px;font-size:11px;background:${h.inProtection ? 'var(--warning)' : (h.mode === 'Tax-Efficient' ? 'var(--success)' : 'var(--primary)')};color:#000;">${h.mode || 'Standard'}${h.inProtection ? ' (Protection)' : ''}</span>
-                <button class="secondary" style="padding:4px 8px;font-size:11px;" onclick="deleteHistoryEntry('${h.date}')">Delete</button>
-              </div>
-            </div>
+        tabsHtml += `<button class="${classes.join(' ')}" onclick="selectHistoryEntry('${h.date}')">${dateLabel}</button>`;
+      });
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;font-size:13px;">
-              <div>
-                <div style="color:var(--text-muted);font-size:11px;">Fund Balances</div>
-                <div>Equity: ${formatCurrency(h.equity || 0)}</div>
-                <div>Bond: ${formatCurrency(h.bond || 0)}</div>
-                <div>Cash: ${formatCurrency(h.cash || 0)}</div>
-                <div style="font-weight:500;">Total: ${formatCurrency(h.total || 0)}</div>
-              </div>
+      tabsContainer.innerHTML = tabsHtml;
 
-              <div>
-                <div style="color:var(--text-muted);font-size:11px;">Monthly Income</div>
-                <div>SIPP: ${formatCurrency(h.sipp || 0)}</div>
-                <div>ISA: ${formatCurrency(h.isa || 0)}</div>
-                <div>Other: ${formatCurrency(h.other || 0)}</div>
-                <div>State: ${formatCurrency(h.state || 0)}</div>
-              </div>
-
-              <div>
-                <div style="color:var(--text-muted);font-size:11px;">Tax & Net</div>
-                <div>Tax: ${formatCurrency(h.monthlyTax || 0)}</div>
-                <div style="font-weight:500;color:var(--success);">Net: ${formatCurrency(h.monthlyNet || 0)}</div>
-                ${h.boostAmount > 0 ? `<div style="color:var(--success);">Boost: +${formatCurrency(h.boostAmount)}</div>` : ''}
-              </div>
-
-              <div>
-                <div style="color:var(--text-muted);font-size:11px;">Withdrawal</div>
-                <div>Source: ${sourceDetail}</div>
-                ${h.consecutiveDraws > 0 ? `<div>Consecutive: ${h.consecutiveDraws}</div>` : ''}
-                ${h.reason ? `<div style="font-size:11px;color:var(--text-muted);">${h.reason}</div>` : ''}
-              </div>
-            </div>
-
-            ${h.rebal ? `<div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:4px;font-size:12px;color:var(--warning);">Rebalance: ${h.rebal}</div>` : ''}
-          </div>
-        `;
+      // If no entry selected, select the most recent one
+      if (!selectedHistoryDate || !allHistoryData.find(h => h.date === selectedHistoryDate)) {
+        selectedHistoryDate = allHistoryData[allHistoryData.length - 1].date;
       }
 
-      container.innerHTML = html;
+      // Render detail view for selected entry
+      renderHistoryDetail(selectedHistoryDate);
+
+      // Scroll to selected tab
+      setTimeout(() => {
+        const activeTab = tabsContainer.querySelector('.history-tab.active');
+        if (activeTab) {
+          activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+      }, 100);
     }
+
+    // Format date for tab display
+    function formatHistoryTabDate(dateStr) {
+      // dateStr is YYYY-MM format
+      const [year, month] = dateStr.split('-').map(Number);
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${monthNames[month - 1]} ${year}`;
+    }
+
+    // Render detail view for a specific history entry
+    function renderHistoryDetail(dateStr) {
+      const container = document.getElementById('historyDetail');
+      const h = allHistoryData.find(entry => entry.date === dateStr);
+
+      if (!h) {
+        container.innerHTML = '<div class="no-history-message"><h3>Entry not found</h3></div>';
+        return;
+      }
+
+      const fmt = (val) => val !== undefined && val !== null ? '£' + Math.round(val).toLocaleString() : '—';
+      const fmtPct = (val) => val !== undefined && val !== null ? (val * 100).toFixed(1) + '%' : '—';
+
+      // Mode badge
+      const isTaxEfficient = h.isTaxEfficientYear !== false && h.mode === 'Tax-Efficient';
+      const modeClass = h.inProtection ? 'warning' : (isTaxEfficient ? 'efficient' : 'inefficient');
+      const modeLabel = h.inProtection
+        ? `Protection${h.protectionInducedTaxEfficiency ? ' (Tax-Efficient)' : ''}`
+        : (isTaxEfficient ? 'Tax-Efficient' : 'Standard');
+
+      // Format withdrawal source details
+      let sourceDetail = h.source || 'Unknown';
+      if (h.source === 'Growth' && (h.dEquity > 0 || h.dBond > 0)) {
+        sourceDetail = `Growth (Equity: ${fmt(h.dEquity || 0)}, Bond: ${fmt(h.dBond || 0)})`;
+      } else if (h.source === 'Cash') {
+        sourceDetail = `Cash (${fmt(h.dCash || h.sipp || 0)})`;
+      }
+
+      let html = `
+        <!-- Header with date and mode -->
+        <div class="history-detail-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div>
+              <h3 style="margin:0;">${formatHistoryTabDate(h.date)}</h3>
+              <div style="color:var(--text-muted);font-size:13px;">Tax Year ${h.taxYear} • Year ${h.yearNum || 0}</div>
+            </div>
+            <span class="tax-mode-badge ${modeClass}">${modeLabel}</span>
+          </div>
+
+          ${h.inProtection && h.reason ? `
+            <div style="padding:12px;background:rgba(243,156,18,0.1);border-radius:8px;margin-bottom:16px;">
+              <strong style="color:var(--warning);">Protection Reason:</strong>
+              <span style="color:var(--text);">${h.reason}</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Fund Balances -->
+        <div class="history-detail-card">
+          <h3>Fund Balances</h3>
+          <div class="history-grid">
+            <div class="history-field">
+              <label>Equity</label>
+              <span class="value">${fmt(h.equity)}</span>
+            </div>
+            <div class="history-field">
+              <label>Bond</label>
+              <span class="value">${fmt(h.bond)}</span>
+            </div>
+            <div class="history-field">
+              <label>Cash</label>
+              <span class="value">${fmt(h.cash)}</span>
+            </div>
+            <div class="history-field">
+              <label>Total</label>
+              <span class="value" style="color:var(--primary);">${fmt(h.total)}</span>
+            </div>
+          </div>
+
+          <!-- Glidepath targets -->
+          ${h.adjEquity || h.adjBond || h.adjCash ? `
+            <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">GLIDEPATH TARGETS</div>
+              <div class="history-grid">
+                <div class="history-field">
+                  <label>Equity Min</label>
+                  <span class="value">${fmt(h.adjEquity)}</span>
+                </div>
+                <div class="history-field">
+                  <label>Bond Min</label>
+                  <span class="value">${fmt(h.adjBond)}</span>
+                </div>
+                <div class="history-field">
+                  <label>Cash Target</label>
+                  <span class="value">${fmt(h.adjCash)}</span>
+                </div>
+                <div class="history-field">
+                  <label>Surplus</label>
+                  <span class="value ${((h.total || 0) - (h.adjEquity || 0) - (h.adjBond || 0) - (h.adjCash || 0)) >= 0 ? 'success' : 'danger'}">
+                    ${fmt((h.total || 0) - (h.adjEquity || 0) - (h.adjBond || 0) - (h.adjCash || 0))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Monthly Recommendation -->
+        <div class="history-detail-card">
+          <h3>Monthly Recommendation</h3>
+          <div class="history-grid">
+            <div class="history-field">
+              <label>SIPP Withdrawal</label>
+              <span class="value" style="color:var(--primary);">${fmt(h.sipp)}</span>
+            </div>
+            <div class="history-field">
+              <label>ISA Top-up</label>
+              <span class="value">${fmt(h.isa)}</span>
+            </div>
+            <div class="history-field">
+              <label>Other Income</label>
+              <span class="value">${fmt(h.other)}</span>
+            </div>
+            <div class="history-field">
+              <label>State Pension</label>
+              <span class="value">${fmt(h.state)}</span>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;padding:16px;background:var(--card-alt);border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:500;">Total Monthly Income</span>
+              <span style="font-size:20px;font-weight:600;color:var(--success);">${fmt(h.monthlyNet)}</span>
+            </div>
+          </div>
+
+          ${h.boostAmount > 0 ? `
+            <div style="margin-top:12px;padding:12px;background:rgba(46,204,113,0.1);border-radius:8px;">
+              <strong style="color:var(--success);">Tax Boost:</strong>
+              <span style="color:var(--success);">+${fmt(h.boostAmount)}</span>
+              <span style="color:var(--text-muted);font-size:12px;">(Catch-up from protection periods)</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- ISA/Savings Allocation -->
+        ${h.yearlyIsaSavingsAllocation > 0 ? `
+          <div class="history-detail-card">
+            <h3>ISA/Savings Allocation</h3>
+            <div class="history-grid">
+              <div class="history-field">
+                <label>Year Allocation</label>
+                <span class="value">${fmt(h.yearlyIsaSavingsAllocation)}</span>
+              </div>
+              <div class="history-field">
+                <label>Used This Month</label>
+                <span class="value">${fmt(h.isaSavingsUsedThisMonth || h.isa)}</span>
+              </div>
+              <div class="history-field">
+                <label>Cumulative Used</label>
+                <span class="value">${fmt(h.cumulativeIsaSavingsUsed)}</span>
+              </div>
+              <div class="history-field">
+                <label>Remaining</label>
+                <span class="value ${((h.yearlyIsaSavingsAllocation || 0) - (h.cumulativeIsaSavingsUsed || 0)) > 0 ? 'success' : 'warning'}">
+                  ${fmt((h.yearlyIsaSavingsAllocation || 0) - (h.cumulativeIsaSavingsUsed || 0))}
+                </span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Tax Summary -->
+        <div class="history-detail-card">
+          <h3>Tax Summary</h3>
+          <div class="history-grid">
+            <div class="history-field">
+              <label>Personal Allowance</label>
+              <span class="value">${fmt(h.pa)}</span>
+            </div>
+            <div class="history-field">
+              <label>Basic Rate Limit</label>
+              <span class="value">${fmt(h.brl)}</span>
+            </div>
+          </div>
+
+          <table class="monthly-breakdown-table" style="margin-top:16px;">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Monthly</th>
+                <th>YTD</th>
+                <th>Projected</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="source-name">Tax Paid</td>
+                <td>${fmt(h.taxPaidMonthly || h.monthlyTax)}</td>
+                <td>${fmt(h.taxPaidYTD)}</td>
+                <td>${fmt(h.taxProjectedAnnual)}</td>
+              </tr>
+              ${(h.taxSavedMonthly > 0 || h.taxSavedProjectedAnnual > 0) ? `
+                <tr>
+                  <td class="source-name">Tax Saved</td>
+                  <td class="net-col">-${fmt(h.taxSavedMonthly)}</td>
+                  <td class="net-col">-${fmt(h.taxSavedYTD)}</td>
+                  <td class="net-col">-${fmt(h.taxSavedProjectedAnnual)}</td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Withdrawal Details -->
+        <div class="history-detail-card">
+          <h3>Withdrawal Details</h3>
+          <div class="history-grid">
+            <div class="history-field">
+              <label>Source</label>
+              <span class="value">${sourceDetail}</span>
+            </div>
+            ${h.consecutiveDraws > 0 ? `
+              <div class="history-field">
+                <label>Consecutive Cash Draws</label>
+                <span class="value warning">${h.consecutiveDraws}</span>
+              </div>
+            ` : ''}
+            <div class="history-field">
+              <label>Remaining Months</label>
+              <span class="value">${h.remainingMonths || 12}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rebalancing -->
+        ${h.rebal ? `
+          <div class="history-detail-card">
+            <h3>Rebalancing Suggestions</h3>
+            <div style="padding:12px;background:rgba(243,156,18,0.1);border-radius:8px;">
+              ${h.rebal}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Actions -->
+        <div class="history-actions">
+          <button class="btn secondary" onclick="deleteHistoryEntry('${h.date}')">Delete Entry</button>
+        </div>
+      `;
+
+      container.innerHTML = html;
+
+      // Update tab active state
+      document.querySelectorAll('.history-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.textContent === formatHistoryTabDate(dateStr));
+      });
+    }
+
+    // Select a history entry
+    window.selectHistoryEntry = function(dateStr) {
+      selectedHistoryDate = dateStr;
+      renderHistoryDetail(dateStr);
+
+      // Scroll tab into view
+      const tabsContainer = document.getElementById('historyTabs');
+      const activeTab = tabsContainer.querySelector(`.history-tab.active`);
+      if (activeTab) {
+        activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    };
+
+    // Scroll history tabs
+    window.scrollHistoryTabs = function(direction) {
+      const container = document.getElementById('historyTabs');
+      const scrollAmount = 200;
+      if (direction === 'left') {
+        container.scrollLeft -= scrollAmount;
+      } else {
+        container.scrollLeft += scrollAmount;
+      }
+    };
 
     // Delete history entry
     window.deleteHistoryEntry = async function(date) {
-      if (!confirm(`Delete entry for ${date}?`)) return;
+      const dateLabel = formatHistoryTabDate(date);
+      if (!confirm(`Delete entry for ${dateLabel}?`)) return;
 
       if (!isLoggedIn()) {
         alert('Please sign in to delete entries');
@@ -3813,6 +4250,8 @@
 
       try {
         await deleteHistoryRecord(date);
+        // Reset selection and re-render
+        selectedHistoryDate = null;
         await renderHistory();
       } catch (error) {
         console.error('Delete error:', error);
