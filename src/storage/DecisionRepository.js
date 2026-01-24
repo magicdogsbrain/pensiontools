@@ -301,12 +301,13 @@ export async function recalculateIsaSavingsUsed(taxYear) {
   const history = (db.history || []).filter(h => h.taxYear === taxYear);
 
   // Sum up all ISA draws from history for this tax year
+  // Note: History records store ISA as 'isa' (see decisionToHistory in Decision.js)
   const totalUsed = history.reduce((sum, record) => {
-    return sum + (record.isaDraw || 0);
+    return sum + (record.isa || 0);
   }, 0);
 
   console.log(`recalculateIsaSavingsUsed: Tax year ${taxYear}, found ${history.length} records, total ISA used: ${totalUsed}`);
-  console.log(`recalculateIsaSavingsUsed: History records:`, history.map(h => ({ date: h.date, isaDraw: h.isaDraw })));
+  console.log(`recalculateIsaSavingsUsed: History records:`, history.map(h => ({ date: h.date, isa: h.isa })));
 
   // Get existing config or create default - must preserve existing settings
   if (!db.taxYears[taxYear]) {
