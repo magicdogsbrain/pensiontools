@@ -20,8 +20,7 @@ import {
   addHistoryRecord,
   getAllTaxYears,
   getAllTaxYearsAsync,
-  updateIsaSavingsUsed,
-  getHistory
+  recalculateIsaSavingsUsed
 } from '../storage/DecisionRepository.js';
 
 /**
@@ -495,21 +494,13 @@ export async function saveDecision(decision) {
   // Add standard SIPP for boost calculations
   historyRecord.stdSipp = decision.sippDraw - (decision.boostAmount || 0);
 
-  // Check if we're overwriting an existing record for this month
-  // If so, we need to adjust the ISA usage (subtract old, add new)
-  const existingHistory = getHistory();
-  const existingRecord = existingHistory.find(h => h.date === decision.date);
-  const oldIsaDraw = existingRecord?.isaDraw || 0;
-
+  // Save the history record (this will overwrite if same date exists)
   await addHistoryRecord(historyRecord);
 
-  // Update ISA/Savings usage for the tax year
-  // Calculate the net change (new - old) to handle overwrites correctly
-  const newIsaDraw = decision.isaDraw || 0;
-  const isaChange = newIsaDraw - oldIsaDraw;
-
-  if (isaChange !== 0 && decision.taxYear) {
-    await updateIsaSavingsUsed(decision.taxYear, isaChange);
+  // Recalculate ISA/Savings usage from all history records for this tax year
+  // This ensures accuracy whether it's a new record or an overwrite
+  if (decision.taxYear) {
+    await recalculateIsaSavingsUsed(decision.taxYear);
   }
 }
 

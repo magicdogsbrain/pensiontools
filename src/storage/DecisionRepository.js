@@ -272,7 +272,7 @@ export async function saveTaxYearConfig(taxYear, config) {
 }
 
 /**
- * Updates ISA/Savings usage for a tax year
+ * Updates ISA/Savings usage for a tax year by adding an amount
  * @param {string} taxYear - Tax year in 'YY/YY' format
  * @param {number} amountUsed - Amount of ISA/Savings used this month
  * @returns {Promise<void>}
@@ -283,6 +283,30 @@ export async function updateIsaSavingsUsed(taxYear, amountUsed) {
   config.isaSavingsUsed = (config.isaSavingsUsed || 0) + amountUsed;
   db.taxYears[taxYear] = config;
   await saveDecisionDB(db);
+}
+
+/**
+ * Recalculates ISA/Savings usage for a tax year from history records
+ * This ensures the cumulative value is always accurate
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @returns {Promise<number>} The recalculated total
+ */
+export async function recalculateIsaSavingsUsed(taxYear) {
+  const db = await loadDecisionDBAsync();
+  const history = db.history.filter(h => h.taxYear === taxYear);
+
+  // Sum up all ISA draws from history for this tax year
+  const totalUsed = history.reduce((sum, record) => {
+    return sum + (record.isaDraw || 0);
+  }, 0);
+
+  // Update the tax year config
+  const config = db.taxYears[taxYear] || getDefaultTaxYearConfig();
+  config.isaSavingsUsed = totalUsed;
+  db.taxYears[taxYear] = config;
+  await saveDecisionDB(db);
+
+  return totalUsed;
 }
 
 /**
