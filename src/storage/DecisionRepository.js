@@ -306,14 +306,22 @@ export async function recalculateIsaSavingsUsed(taxYear) {
   }, 0);
 
   console.log(`recalculateIsaSavingsUsed: Tax year ${taxYear}, found ${history.length} records, total ISA used: ${totalUsed}`);
+  console.log(`recalculateIsaSavingsUsed: History records:`, history.map(h => ({ date: h.date, isaDraw: h.isaDraw })));
 
-  // Update the tax year config
-  const config = db.taxYears[taxYear] || getDefaultTaxYearConfig();
-  config.isaSavingsUsed = totalUsed;
-  db.taxYears[taxYear] = config;
+  // Get existing config or create default - must preserve existing settings
+  if (!db.taxYears[taxYear]) {
+    console.log(`recalculateIsaSavingsUsed: No existing config for ${taxYear}, creating default`);
+    db.taxYears[taxYear] = getDefaultTaxYearConfig();
+  }
+
+  // Update only the isaSavingsUsed field
+  console.log(`recalculateIsaSavingsUsed: Before update, isaSavingsUsed=${db.taxYears[taxYear].isaSavingsUsed}`);
+  db.taxYears[taxYear].isaSavingsUsed = totalUsed;
+  console.log(`recalculateIsaSavingsUsed: After update, isaSavingsUsed=${db.taxYears[taxYear].isaSavingsUsed}`);
 
   // Save and update cache
   await saveDecisionDB(db);
+  console.log(`recalculateIsaSavingsUsed: Saved to Firebase`);
 
   return totalUsed;
 }
