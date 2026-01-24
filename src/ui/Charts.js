@@ -2,9 +2,10 @@
  * Charts Module
  * Canvas-based visualization for stress testing results
  * Supports dark mode and interactive hover tooltips
+ * Mobile-first responsive design
  */
 
-// Get colors from CSS variables (dark mode aware)
+// Get colors from CSS variables (dark mode aware) - PWA-style colors
 function getColors() {
   const style = getComputedStyle(document.documentElement);
   const isDark = style.getPropertyValue('--bg').trim() === '#0d1117' ||
@@ -12,40 +13,64 @@ function getColors() {
                  window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   return {
-    primary: '#6366f1',
-    success: '#22c55e',
-    warning: '#f59e0b',
-    danger: '#ef4444',
-    muted: isDark ? '#8b949e' : '#6b7280',
-    grid: isDark ? '#30363d' : '#e5e7eb',
-    bg: isDark ? '#161b22' : '#ffffff',
+    // PWA-style colors
+    primary: '#f0c674',        // Gold/amber for median
+    success: '#2ea043',        // Green for successful
+    warning: '#e1b12c',        // Yellow/gold for warnings
+    danger: '#f85149',         // Red for failed/danger
+    muted: '#8b8b9b',
+    grid: 'rgba(255,255,255,0.1)',
+    bg: isDark ? 'rgba(15,15,26,1)' : '#ffffff',
     text: isDark ? '#c9d1d9' : '#1f2937',
     cardBg: isDark ? '#21262d' : '#ffffff',
-    cone: isDark ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.15)',
-    coneBorder: 'rgba(99, 102, 241, 0.4)',
-    trajectory: isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.3)',
-    trajectoryFailed: isDark ? 'rgba(239, 68, 68, 0.5)' : 'rgba(239, 68, 68, 0.4)',
-    trajectoryHover: '#6366f1',
-    trajectoryFailedHover: '#ef4444'
+    // Cone colors - warm amber tones like PWA
+    cone: 'rgba(240,198,116,0.15)',
+    coneMid: 'rgba(240,198,116,0.2)',
+    coneInner: 'rgba(240,198,116,0.35)',
+    coneBorder: 'rgba(240,198,116,0.4)',
+    // Trajectory colors
+    trajectory: 'rgba(46,160,67,0.25)',          // Green for successful, thin
+    trajectoryFailed: 'rgba(248,81,73,0.8)',     // Red for failed, prominent
+    trajectoryHover: '#5fdd7b',                   // Bright green on hover
+    trajectoryFailedHover: '#ff6b6b',            // Bright red on hover
+    // Glidepath
+    glidepath: '#7eb8da',
+    // Zero line
+    zeroLine: '#f85149'
   };
 }
 
 // Store chart data for hover interactions
 const chartDataStore = new Map();
 
+// Track highlighted trajectory index
+let trajHighlightIdx = -1;
+
 /**
- * Draws a cone of uncertainty chart showing percentile bands
+ * Distance from point to line segment (for trajectory hit detection)
+ */
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+  const projX = x1 + t * dx, projY = y1 + t * dy;
+  return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+}
+
+/**
+ * Draws a cone of uncertainty chart showing percentile bands - PWA style
  */
 export function drawCone(canvas, results, options = {}) {
   const COLORS = getColors();
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
-  const padding = { top: 50, right: 30, bottom: 60, left: 80 };
+  const padding = { top: 20, right: 40, bottom: 50, left: 80 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  // Clear canvas
-  ctx.fillStyle = COLORS.bg;
+  // Dark background like PWA
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.fillRect(0, 0, width, height);
 
   const years = options.years || 35;
@@ -85,44 +110,83 @@ export function drawCone(canvas, results, options = {}) {
 
   if (percentiles.length === 0) return;
 
-  const maxValue = Math.max(...percentiles.map(p => p.p95)) * 1.1;
+  const maxValue = Math.max(...percentiles.map(p => p.p90)) * 1.15;
   const xScale = (year) => padding.left + (year / years) * chartWidth;
-  const yScale = (value) => padding.top + chartHeight - (value / maxValue) * chartHeight;
+  const yScale = (value) => height - padding.bottom - (value / maxValue) * chartHeight;
 
   // Draw grid
-  drawGrid(ctx, padding, chartWidth, chartHeight, years, maxValue, options.title || 'Cone of Uncertainty', COLORS);
-
-  // Draw cone bands
-  const bands = [
-    { upper: 'p95', lower: 'p5', color: COLORS.cone },
-    { upper: 'p90', lower: 'p10', color: COLORS.cone.replace('0.25', '0.35').replace('0.15', '0.25') },
-    { upper: 'p75', lower: 'p25', color: COLORS.cone.replace('0.25', '0.45').replace('0.15', '0.35') }
-  ];
-
-  bands.forEach(band => {
+  ctx.strokeStyle = COLORS.grid;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = padding.top + (i / 5) * chartHeight;
     ctx.beginPath();
-    ctx.fillStyle = band.color;
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+  }
 
-    percentiles.forEach((p, i) => {
-      const x = xScale(p.year);
-      const y = yScale(p[band.upper]);
+  // 5-95 percentile band (lightest)
+  ctx.fillStyle = COLORS.cone;
+  ctx.beginPath();
+  percentiles.forEach((p, i) => {
+    const x = xScale(p.year);
+    if (i === 0) ctx.moveTo(x, yScale(p.p95));
+    else ctx.lineTo(x, yScale(p.p95));
+  });
+  for (let i = percentiles.length - 1; i >= 0; i--) {
+    ctx.lineTo(xScale(percentiles[i].year), yScale(percentiles[i].p5));
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // 10-90 percentile band
+  ctx.fillStyle = COLORS.coneMid;
+  ctx.beginPath();
+  percentiles.forEach((p, i) => {
+    const x = xScale(p.year);
+    if (i === 0) ctx.moveTo(x, yScale(p.p90));
+    else ctx.lineTo(x, yScale(p.p90));
+  });
+  for (let i = percentiles.length - 1; i >= 0; i--) {
+    ctx.lineTo(xScale(percentiles[i].year), yScale(percentiles[i].p10));
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // 25-75 percentile band (darkest)
+  ctx.fillStyle = COLORS.coneInner;
+  ctx.beginPath();
+  percentiles.forEach((p, i) => {
+    const x = xScale(p.year);
+    if (i === 0) ctx.moveTo(x, yScale(p.p75));
+    else ctx.lineTo(x, yScale(p.p75));
+  });
+  for (let i = percentiles.length - 1; i >= 0; i--) {
+    ctx.lineTo(xScale(percentiles[i].year), yScale(percentiles[i].p25));
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Glidepath minimum line (if available in options)
+  if (options.glide && options.glide.length > 0) {
+    ctx.strokeStyle = COLORS.glidepath;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath();
+    options.glide.forEach((g, i) => {
+      const x = xScale(g.year);
+      const y = yScale(g.min);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
-    for (let i = percentiles.length - 1; i >= 0; i--) {
-      const p = percentiles[i];
-      ctx.lineTo(xScale(p.year), yScale(p[band.lower]));
-    }
-
-    ctx.closePath();
-    ctx.fill();
-  });
-
-  // Draw median line
-  ctx.beginPath();
+  // Median line
   ctx.strokeStyle = COLORS.primary;
   ctx.lineWidth = 3;
+  ctx.beginPath();
   percentiles.forEach((p, i) => {
     const x = xScale(p.year);
     const y = yScale(p.p50);
@@ -131,8 +195,43 @@ export function drawCone(canvas, results, options = {}) {
   });
   ctx.stroke();
 
-  // Draw legend
-  drawConeLegend(ctx, width - padding.right - 160, padding.top + 10, COLORS);
+  // 10th percentile line (danger zone)
+  ctx.strokeStyle = 'rgba(248,81,73,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 2]);
+  ctx.beginPath();
+  percentiles.forEach((p, i) => {
+    const x = xScale(p.year);
+    if (i === 0) ctx.moveTo(x, yScale(p.p10));
+    else ctx.lineTo(x, yScale(p.p10));
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Zero line
+  ctx.strokeStyle = COLORS.zeroLine;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.moveTo(padding.left, yScale(0));
+  ctx.lineTo(width - padding.right, yScale(0));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Y-axis labels
+  ctx.fillStyle = COLORS.muted;
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const value = maxValue * (1 - i / 5);
+    ctx.fillText(formatValue(value), padding.left - 10, padding.top + (i / 5) * chartHeight + 4);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  for (let y = 0; y <= years; y += 5) {
+    ctx.fillText(`Yr ${y}`, xScale(y), height - padding.bottom + 20);
+  }
 
   // Store data for hover
   chartDataStore.set(canvas.id, { percentiles, xScale, yScale, padding, chartWidth, chartHeight, years, maxValue, type: 'cone' });
@@ -142,77 +241,132 @@ export function drawCone(canvas, results, options = {}) {
 }
 
 /**
- * Draws sample trajectories chart with interactive hover
+ * Draws sample trajectories chart with interactive hover - PWA style
+ * Focuses on negative trajectories, positive ones can overflow
  */
 export function drawTrajectories(canvas, results, options = {}) {
   const COLORS = getColors();
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
-  const padding = { top: 50, right: 30, bottom: 60, left: 80 };
+  const padding = { top: 20, right: 40, bottom: 50, left: 80 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  ctx.fillStyle = COLORS.bg;
+  // Dark background like PWA
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.fillRect(0, 0, width, height);
 
   const years = options.years || 35;
+  const startValue = options.startValue || 1000000;
 
-  // Cap Y-axis at 5 million to focus on lower values
-  const Y_CAP = 5000000;
-  const maxValue = Y_CAP;
+  // Use 95th percentile for max to focus on lower values - positive trajectories overflow at top
+  const allTotals = [];
+  results.forEach(r => {
+    r.hist.forEach(h => {
+      allTotals.push(h.total);
+    });
+  });
+  allTotals.sort((a, b) => a - b);
+  let maxValue = allTotals[Math.floor(allTotals.length * 0.95)] * 1.2;
+  maxValue = Math.max(maxValue, startValue * 1.5);
 
   const xScale = (year) => padding.left + (year / years) * chartWidth;
-  // Cap values at Y_CAP for display (trajectories above cap saturate at top)
-  const yScale = (value) => padding.top + chartHeight - (Math.min(value, Y_CAP) / maxValue) * chartHeight;
+  // Values above max will be clamped to top of chart (overflow)
+  const yScale = (value) => height - padding.bottom - (Math.min(value, maxValue) / maxValue) * chartHeight;
 
-  drawGrid(ctx, padding, chartWidth, chartHeight, years, maxValue, options.title || 'Sample Trajectories', COLORS);
+  // Draw grid
+  ctx.strokeStyle = COLORS.grid;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = padding.top + (i / 5) * chartHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = COLORS.muted;
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const value = maxValue * (1 - i / 5);
+    ctx.fillText(formatValue(value), padding.left - 10, padding.top + (i / 5) * chartHeight + 4);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  for (let y = 0; y <= years; y += 5) {
+    ctx.fillText(`Yr ${y}`, xScale(y), height - padding.bottom + 20);
+  }
 
   const sampleResults = results.slice(0, 100);
 
-  // Draw failed trajectories
-  sampleResults.filter(r => r.failed).forEach(r => {
+  // Separate failed and successful runs
+  const failedRuns = sampleResults.filter(r => r.failed);
+  const successRuns = sampleResults.filter(r => !r.failed);
+
+  // Store paths for hit detection
+  const paths = [];
+
+  // Glidepath line (if available)
+  if (options.glide && options.glide.length > 0) {
+    ctx.strokeStyle = COLORS.glidepath;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 4]);
     ctx.beginPath();
-    ctx.strokeStyle = COLORS.trajectoryFailed;
-    ctx.lineWidth = 1.5;
-    r.hist.forEach((h, i) => {
-      const x = xScale(h.year);
-      const y = yScale(h.total);
+    options.glide.forEach((g, i) => {
+      const x = xScale(g.year);
+      const y = yScale(g.min);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
-  });
+    ctx.setLineDash([]);
+  }
 
-  // Draw successful trajectories
-  sampleResults.filter(r => !r.failed).forEach(r => {
-    ctx.beginPath();
+  // Draw successful trajectories first (green, thin) - background
+  successRuns.forEach((r, idx) => {
+    const pts = r.hist.map(h => ({ x: xScale(h.year), y: yScale(h.total) }));
+    paths.push({ run: r, pts, failed: false, idx });
     ctx.strokeStyle = COLORS.trajectory;
-    ctx.lineWidth = 1.5;
-    r.hist.forEach((h, i) => {
-      const x = xScale(h.year);
-      const y = yScale(h.total);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     });
     ctx.stroke();
   });
 
-  // Draw legend
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.fillStyle = COLORS.trajectory.replace('0.4', '1').replace('0.3', '1');
-  ctx.fillRect(width - padding.right - 130, padding.top + 10, 20, 4);
-  ctx.fillStyle = COLORS.text;
-  ctx.textAlign = 'left';
-  ctx.fillText('Successful', width - padding.right - 105, padding.top + 16);
+  // Draw failed trajectories on top (red, thicker) - prominent
+  failedRuns.forEach((r, idx) => {
+    const pts = r.hist.map(h => ({ x: xScale(h.year), y: yScale(h.total) }));
+    paths.push({ run: r, pts, failed: true, idx: successRuns.length + idx });
+    ctx.strokeStyle = COLORS.trajectoryFailed;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+  });
 
-  ctx.fillStyle = COLORS.trajectoryFailed.replace('0.5', '1').replace('0.4', '1');
-  ctx.fillRect(width - padding.right - 130, padding.top + 30, 20, 4);
-  ctx.fillStyle = COLORS.text;
-  ctx.fillText('Failed', width - padding.right - 105, padding.top + 36);
+  // Zero line
+  ctx.strokeStyle = COLORS.zeroLine;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.moveTo(padding.left, yScale(0));
+  ctx.lineTo(width - padding.right, yScale(0));
+  ctx.stroke();
+  ctx.setLineDash([]);
 
   // Store data for hover
   chartDataStore.set(canvas.id, {
     results: sampleResults,
+    paths,
     xScale,
     yScale,
     padding,
@@ -220,6 +374,7 @@ export function drawTrajectories(canvas, results, options = {}) {
     chartHeight,
     years,
     maxValue,
+    glide: options.glide,
     type: 'trajectory'
   });
 
@@ -228,27 +383,25 @@ export function drawTrajectories(canvas, results, options = {}) {
 }
 
 /**
- * Draws protection distribution histogram
+ * Draws protection distribution histogram - PWA style with hover
  */
 export function drawHistogram(canvas, results, options = {}) {
   const COLORS = getColors();
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
-  const padding = { top: 50, right: 30, bottom: 60, left: 60 };
+  const padding = { top: 30, right: 20, bottom: 55, left: 60 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  ctx.fillStyle = COLORS.bg;
+  // Dark background like PWA
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.fillRect(0, 0, width, height);
 
   const protMonths = results.map(r => r.protMonths);
+  const totalRuns = protMonths.length;
   const maxProt = Math.max(...protMonths);
-  const bucketSize = Math.max(1, Math.ceil(maxProt / 20));
+  const bucketSize = Math.max(1, Math.ceil(maxProt / 15));
   const buckets = {};
-
-  for (let i = 0; i <= maxProt; i += bucketSize) {
-    buckets[i] = 0;
-  }
 
   protMonths.forEach(p => {
     const bucket = Math.floor(p / bucketSize) * bucketSize;
@@ -257,69 +410,73 @@ export function drawHistogram(canvas, results, options = {}) {
 
   const bucketKeys = Object.keys(buckets).map(Number).sort((a, b) => a - b);
   const maxCount = Math.max(...Object.values(buckets));
+  const barWidth = chartWidth / (bucketKeys.length || 1);
 
-  // Title
-  ctx.font = 'bold 14px system-ui, sans-serif';
-  ctx.fillStyle = COLORS.text;
-  ctx.textAlign = 'center';
-  ctx.fillText(options.title || 'Protection Months Distribution', width / 2, padding.top - 20);
+  // Store bar positions for hover
+  const bars = [];
 
-  // Axes
+  // Y-axis grid and labels
   ctx.strokeStyle = COLORS.grid;
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padding.left, padding.top);
-  ctx.lineTo(padding.left, padding.top + chartHeight);
-  ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
-  ctx.stroke();
-
-  // Bars
-  const barWidth = (chartWidth / bucketKeys.length) * 0.8;
-  const barGap = (chartWidth / bucketKeys.length) * 0.2;
-
-  bucketKeys.forEach((bucket, i) => {
-    const count = buckets[bucket];
-    const barHeight = (count / maxCount) * chartHeight;
-    const x = padding.left + i * (barWidth + barGap) + barGap / 2;
-    const y = padding.top + chartHeight - barHeight;
-
-    const intensity = bucket / maxProt;
-    if (bucket === 0) {
-      ctx.fillStyle = COLORS.success;
-    } else if (intensity < 0.3) {
-      ctx.fillStyle = COLORS.warning;
-    } else {
-      ctx.fillStyle = COLORS.danger;
-    }
-
-    ctx.fillRect(x, y, barWidth, barHeight);
-
-    if (i % 3 === 0 || i === bucketKeys.length - 1) {
-      ctx.font = '10px system-ui, sans-serif';
-      ctx.fillStyle = COLORS.muted;
-      ctx.textAlign = 'center';
-      ctx.fillText(bucket.toString(), x + barWidth / 2, padding.top + chartHeight + 15);
-    }
-  });
-
-  // Y-axis labels
-  ctx.textAlign = 'right';
   ctx.fillStyle = COLORS.muted;
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'right';
   for (let i = 0; i <= 4; i++) {
-    const value = Math.round((maxCount * i) / 4);
-    const y = padding.top + chartHeight - (chartHeight * i / 4);
-    ctx.fillText(value.toString(), padding.left - 10, y + 4);
+    const y = padding.top + (i / 4) * chartHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+    const val = Math.round(maxCount * (1 - i / 4));
+    ctx.fillText(`${val} runs`, padding.left - 5, y + 4);
   }
 
-  // Axis labels
-  ctx.font = '12px system-ui, sans-serif';
+  // Draw bars
+  bucketKeys.forEach((bucket, i) => {
+    const count = buckets[bucket];
+    const barH = (count / maxCount) * chartHeight;
+    const x = padding.left + i * barWidth + 2;
+    const y = height - padding.bottom - barH;
+    const w = barWidth - 4;
+
+    // Green for zero protection, yellow/gold for protection needed
+    ctx.fillStyle = bucket === 0 ? COLORS.success : COLORS.warning;
+    ctx.fillRect(x, y, w, barH);
+
+    bars.push({
+      x, y, w, h: barH,
+      months: bucket,
+      monthsEnd: bucket + bucketSize - 1,
+      count,
+      pct: (count / totalRuns * 100).toFixed(1)
+    });
+  });
+
+  // X-axis labels
+  ctx.fillStyle = COLORS.muted;
+  ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('Protection Months', width / 2, height - 10);
+  bucketKeys.forEach((bucket, i) => {
+    if (i % 2 === 0 || bucketKeys.length < 12) {
+      const label = bucketSize > 1 ? `${bucket}-${bucket + bucketSize - 1}` : bucket.toString();
+      ctx.fillText(label, padding.left + i * barWidth + barWidth / 2, height - padding.bottom + 15);
+    }
+  });
+  ctx.fillText('Protection Months', width / 2, height - 5);
+
+  // Y-axis title
   ctx.save();
-  ctx.translate(15, height / 2);
+  ctx.translate(12, height / 2);
   ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
   ctx.fillText('Number of Runs', 0, 0);
   ctx.restore();
+
+  // Store for hover handler
+  chartDataStore.set(canvas.id, { bars, totalRuns, type: 'histogram' });
+
+  // Setup hover
+  setupHistogramHover(canvas, COLORS);
 }
 
 /**
@@ -387,7 +544,7 @@ export function drawScenarioComparison(canvas, scenarios, options = {}) {
 
     const finalVal = result.final / 1000;
     ctx.fillStyle = COLORS.muted;
-    ctx.fillText(`£${finalVal.toFixed(0)}k`, width - padding.right + 40, legendY + 18);
+    ctx.fillText(`${formatValue(result.final)}`, width - padding.right + 40, legendY + 18);
   });
 }
 
@@ -440,40 +597,6 @@ function drawGrid(ctx, padding, chartWidth, chartHeight, years, maxValue, title,
 }
 
 /**
- * Cone legend helper
- */
-function drawConeLegend(ctx, x, y, COLORS) {
-  const items = [
-    { label: 'Median (50th)', color: COLORS.primary, type: 'line' },
-    { label: '25th-75th %ile', color: COLORS.cone.replace('0.25', '0.45').replace('0.15', '0.35'), type: 'band' },
-    { label: '10th-90th %ile', color: COLORS.cone.replace('0.25', '0.35').replace('0.15', '0.25'), type: 'band' },
-    { label: '5th-95th %ile', color: COLORS.cone, type: 'band' }
-  ];
-
-  ctx.font = '11px system-ui, sans-serif';
-
-  items.forEach((item, i) => {
-    const itemY = y + i * 20;
-
-    if (item.type === 'line') {
-      ctx.strokeStyle = item.color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(x, itemY);
-      ctx.lineTo(x + 25, itemY);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = item.color;
-      ctx.fillRect(x, itemY - 7, 25, 14);
-    }
-
-    ctx.fillStyle = COLORS.text;
-    ctx.textAlign = 'left';
-    ctx.fillText(item.label, x + 30, itemY + 4);
-  });
-}
-
-/**
  * Format large values
  */
 function formatValue(value) {
@@ -486,7 +609,7 @@ function formatValue(value) {
 }
 
 /**
- * Setup cone chart hover
+ * Setup cone chart hover with detailed percentile info
  */
 function setupConeHover(canvas, COLORS) {
   const existingListener = canvas._coneHoverListener;
@@ -501,9 +624,8 @@ function setupConeHover(canvas, COLORS) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const mouseX = (e.clientX - rect.left) * scaleX;
-    const mouseY = (e.clientY - rect.top) * scaleX;
 
-    const { percentiles, xScale, yScale, padding, chartWidth, years } = data;
+    const { percentiles, padding, chartWidth, years } = data;
 
     // Find nearest year
     const yearFloat = ((mouseX - padding.left) / chartWidth) * years;
@@ -520,14 +642,21 @@ function setupConeHover(canvas, COLORS) {
       return;
     }
 
-    showTooltip(e.clientX, e.clientY, `
-      <strong>Year ${nearestYear}</strong><br>
-      95th: ${formatValue(pData.p95)}<br>
-      75th: ${formatValue(pData.p75)}<br>
-      50th: ${formatValue(pData.p50)}<br>
-      25th: ${formatValue(pData.p25)}<br>
-      5th: ${formatValue(pData.p5)}
-    `);
+    const html = `
+      <div style="border-bottom:1px solid #555;padding-bottom:6px;margin-bottom:6px;">
+        <strong style="color:#f0c674;">Year ${nearestYear}</strong>
+      </div>
+      <div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;">
+        <span style="color:#8b8b9b;">95th percentile:</span><span>${formatValue(pData.p95)}</span>
+        <span style="color:#8b8b9b;">75th percentile:</span><span>${formatValue(pData.p75)}</span>
+        <span style="color:#8b8b9b;">Median (50th):</span><span style="color:#f0c674;font-weight:bold;">${formatValue(pData.p50)}</span>
+        <span style="color:#8b8b9b;">25th percentile:</span><span>${formatValue(pData.p25)}</span>
+        <span style="color:#8b8b9b;">10th percentile:</span><span style="color:#f85149;">${formatValue(pData.p10)}</span>
+        <span style="color:#8b8b9b;">5th percentile:</span><span>${formatValue(pData.p5)}</span>
+      </div>
+    `;
+
+    showTooltip(e.clientX, e.clientY, html);
   };
 
   canvas._coneHoverListener = listener;
@@ -536,12 +665,16 @@ function setupConeHover(canvas, COLORS) {
 }
 
 /**
- * Setup trajectory chart hover with detailed stats
+ * Setup trajectory chart hover with detailed stats - PWA style
  */
 function setupTrajectoryHover(canvas, COLORS) {
   const existingListener = canvas._trajHoverListener;
   if (existingListener) {
     canvas.removeEventListener('mousemove', existingListener);
+  }
+  const existingLeaveListener = canvas._trajLeaveListener;
+  if (existingLeaveListener) {
+    canvas.removeEventListener('mouseleave', existingLeaveListener);
   }
 
   const listener = (e) => {
@@ -554,135 +687,240 @@ function setupTrajectoryHover(canvas, COLORS) {
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
 
-    const { results, xScale, yScale, padding, chartWidth, chartHeight } = data;
+    const { paths, padding, chartWidth, chartHeight } = data;
 
     // Check if mouse is in chart area
     if (mouseX < padding.left || mouseX > padding.left + chartWidth ||
         mouseY < padding.top || mouseY > padding.top + chartHeight) {
       hideTooltip();
-      redrawTrajectories(canvas, data, COLORS, null);
+      if (trajHighlightIdx !== -1) {
+        trajHighlightIdx = -1;
+        redrawTrajectories(canvas, data, COLORS, null);
+      }
       return;
     }
 
-    // Find closest trajectory
-    let closestResult = null;
-    let minDist = Infinity;
+    // Find closest trajectory - prioritize failed runs
+    let closest = null;
+    let minDist = 12 * scaleX;
 
-    results.forEach(r => {
-      r.hist.forEach(h => {
-        const px = xScale(h.year);
-        const py = yScale(h.total);
-        const dist = Math.sqrt(Math.pow(mouseX - px, 2) + Math.pow(mouseY - py, 2));
-        if (dist < minDist && dist < 30) {
-          minDist = dist;
-          closestResult = r;
+    // Check failed runs first
+    paths.filter(p => p.failed).forEach(p => {
+      for (let i = 0; i < p.pts.length - 1; i++) {
+        const d = distToSegment(mouseX, mouseY, p.pts[i].x, p.pts[i].y, p.pts[i + 1].x, p.pts[i + 1].y);
+        if (d < minDist) {
+          minDist = d;
+          closest = p;
         }
-      });
+      }
     });
 
-    if (closestResult) {
-      const statusText = closestResult.failed ? 'FAILED' : 'Survived';
-      const statusColor = closestResult.failed ? '#ef4444' : '#22c55e';
+    // Then check successful runs if no failed run found
+    if (!closest) {
+      paths.filter(p => !p.failed).forEach(p => {
+        for (let i = 0; i < p.pts.length - 1; i++) {
+          const d = distToSegment(mouseX, mouseY, p.pts[i].x, p.pts[i].y, p.pts[i + 1].x, p.pts[i + 1].y);
+          if (d < minDist) {
+            minDist = d;
+            closest = p;
+          }
+        }
+      });
+    }
 
-      showTooltip(e.clientX, e.clientY, `
-        <strong style="color: ${statusColor}">${statusText}</strong><br>
-        Years: ${closestResult.years.toFixed(1)}<br>
-        Final Value: ${formatValue(closestResult.final)}<br>
-        Protection Months: ${closestResult.protMonths}<br>
-        Max Consecutive: ${closestResult.maxConsec}<br>
-        ${closestResult.hodlUsed > 0 ? `HODL Used: ${formatValue(closestResult.hodlUsed)}` : ''}
-        ${closestResult.startYear ? `<br>Start Year: ${closestResult.startYear}` : ''}
-      `);
+    // Redraw if highlight changed
+    const newHighlightIdx = closest ? closest.idx : -1;
+    if (newHighlightIdx !== trajHighlightIdx) {
+      trajHighlightIdx = newHighlightIdx;
+      redrawTrajectories(canvas, data, COLORS, closest);
+    }
 
-      redrawTrajectories(canvas, data, COLORS, closestResult);
+    if (closest) {
+      const r = closest.run;
+      const statusColor = closest.failed ? '#f85149' : '#2ea043';
+      const statusIcon = closest.failed ? '❌' : '✅';
+      const statusText = closest.failed ? 'FAILED' : 'SUCCESS';
+
+      let html = `
+        <div style="border-bottom:1px solid #555;padding-bottom:6px;margin-bottom:6px;">
+          <strong style="color:${statusColor};">${statusIcon} ${statusText}</strong>
+          <span style="float:right;color:#8b8b9b;font-size:11px;">Run #${closest.idx + 1}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;">
+      `;
+
+      if (r.startYear) {
+        html += `<span style="color:#8b8b9b;">Start year:</span><span>${r.startYear}</span>`;
+      }
+      html += `<span style="color:#8b8b9b;">Duration:</span><span>${r.years.toFixed(1)} years</span>`;
+      html += `<span style="color:#8b8b9b;">Final balance:</span><span>${formatValue(r.final)}</span>`;
+      html += `<span style="color:#8b8b9b;">Protection months:</span><span>${r.protMonths}</span>`;
+      html += `<span style="color:#8b8b9b;">Longest streak:</span><span>${r.maxConsec} months</span>`;
+      if (r.hodlUsed > 0) {
+        html += `<span style="color:#8b8b9b;">HODL used:</span><span>${formatValue(r.hodlUsed)}</span>`;
+      }
+      html += '</div>';
+
+      if (closest.failed && r.failMonth) {
+        html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #555;color:#f0c674;">💀 Depleted at year ${(r.failMonth / 12).toFixed(1)}</div>`;
+      }
+
+      showTooltip(e.clientX, e.clientY, html);
     } else {
       hideTooltip();
-      redrawTrajectories(canvas, data, COLORS, null);
+    }
+  };
+
+  const leaveListener = () => {
+    hideTooltip();
+    if (trajHighlightIdx !== -1) {
+      trajHighlightIdx = -1;
+      const data = chartDataStore.get(canvas.id);
+      if (data) redrawTrajectories(canvas, data, COLORS, null);
     }
   };
 
   canvas._trajHoverListener = listener;
+  canvas._trajLeaveListener = leaveListener;
   canvas.addEventListener('mousemove', listener);
-  canvas.addEventListener('mouseleave', () => {
-    hideTooltip();
-    const data = chartDataStore.get(canvas.id);
-    if (data) redrawTrajectories(canvas, data, COLORS, null);
-  });
+  canvas.addEventListener('mouseleave', leaveListener);
 }
 
 /**
- * Redraw trajectories with highlight
+ * Setup histogram hover - PWA style
+ */
+function setupHistogramHover(canvas, COLORS) {
+  const existingListener = canvas._histHoverListener;
+  if (existingListener) {
+    canvas.removeEventListener('mousemove', existingListener);
+  }
+
+  const listener = (e) => {
+    const data = chartDataStore.get(canvas.id);
+    if (!data || data.type !== 'histogram') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
+
+    const { bars, totalRuns } = data;
+    let hit = null;
+
+    bars.forEach(bar => {
+      if (mouseX >= bar.x && mouseX <= bar.x + bar.w && mouseY >= bar.y && mouseY <= bar.y + bar.h) {
+        hit = bar;
+      }
+    });
+
+    if (hit) {
+      const isZero = hit.months === 0;
+      const color = isZero ? '#2ea043' : '#e1b12c';
+      const icon = isZero ? '🟢' : '🟡';
+      const label = isZero ? 'No Protection' : `${hit.months}${hit.monthsEnd > hit.months ? `-${hit.monthsEnd}` : ''} months`;
+
+      const html = `
+        <div style="border-bottom:1px solid #555;padding-bottom:6px;margin-bottom:6px;">
+          <strong style="color:${color};">${icon} ${label}</strong>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;">
+          <span style="color:#8b8b9b;">Runs:</span><span>${hit.count} of ${totalRuns}</span>
+          <span style="color:#8b8b9b;">Percentage:</span><span>${hit.pct}%</span>
+        </div>
+      `;
+      showTooltip(e.clientX, e.clientY, html);
+    } else {
+      hideTooltip();
+    }
+  };
+
+  canvas._histHoverListener = listener;
+  canvas.addEventListener('mousemove', listener);
+  canvas.addEventListener('mouseleave', hideTooltip);
+}
+
+/**
+ * Redraw trajectories with highlight - PWA style
  */
 function redrawTrajectories(canvas, data, COLORS, highlight) {
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
-  const padding = { top: 50, right: 30, bottom: 60, left: 80 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
+  const { paths, xScale, yScale, padding, chartWidth, chartHeight, years, maxValue, glide } = data;
 
-  ctx.fillStyle = COLORS.bg;
-  ctx.fillRect(0, 0, width, height);
+  // Clear chart area only (preserve any surrounding content)
+  ctx.fillStyle = 'rgba(15,15,26,1)';
+  ctx.fillRect(padding.left, padding.top, chartWidth, chartHeight);
 
-  drawGrid(ctx, padding, chartWidth, chartHeight, data.years, data.maxValue, 'Sample Trajectories', COLORS);
-
-  const { results, xScale, yScale } = data;
-
-  // Draw non-highlighted trajectories
-  results.forEach(r => {
-    if (r === highlight) return;
-
+  // Redraw grid
+  ctx.strokeStyle = COLORS.grid;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = padding.top + (i / 5) * chartHeight;
     ctx.beginPath();
-    ctx.strokeStyle = r.failed ? COLORS.trajectoryFailed : COLORS.trajectory;
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+  }
+
+  // Redraw glidepath
+  if (glide && glide.length > 0) {
+    ctx.strokeStyle = COLORS.glidepath;
     ctx.lineWidth = 1.5;
-    r.hist.forEach((h, i) => {
-      const x = xScale(h.year);
-      const y = yScale(h.total);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    ctx.setLineDash([4, 2]);
+    ctx.beginPath();
+    glide.forEach((g, i) => {
+      const gx = xScale(g.year);
+      const gy = yScale(g.min);
+      if (i === 0) ctx.moveTo(gx, gy);
+      else ctx.lineTo(gx, gy);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw non-highlighted trajectories (dimmer when something is highlighted)
+  paths.forEach(p => {
+    if (highlight && p.idx === highlight.idx) return;
+    const alpha = highlight ? 0.15 : (p.failed ? 0.8 : 0.25);
+    ctx.strokeStyle = p.failed ? `rgba(248,81,73,${alpha})` : `rgba(46,160,67,${alpha})`;
+    ctx.lineWidth = p.failed ? 2 : 0.5;
+    ctx.beginPath();
+    p.pts.forEach((pt, i) => {
+      if (i === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
     });
     ctx.stroke();
   });
 
-  // Draw highlighted trajectory on top
+  // Draw highlighted trajectory on top (bright and thick with glow)
   if (highlight) {
-    ctx.beginPath();
     ctx.strokeStyle = highlight.failed ? COLORS.trajectoryFailedHover : COLORS.trajectoryHover;
     ctx.lineWidth = 4;
-    highlight.hist.forEach((h, i) => {
-      const x = xScale(h.year);
-      const y = yScale(h.total);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    ctx.shadowColor = highlight.failed ? COLORS.trajectoryFailedHover : COLORS.trajectoryHover;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    highlight.pts.forEach((pt, i) => {
+      if (i === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
     });
     ctx.stroke();
-
-    // Draw points on highlighted trajectory
-    ctx.fillStyle = highlight.failed ? COLORS.trajectoryFailedHover : COLORS.trajectoryHover;
-    highlight.hist.forEach(h => {
-      const x = xScale(h.year);
-      const y = yScale(h.total);
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    ctx.shadowBlur = 0;
   }
 
-  // Redraw legend
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.fillStyle = COLORS.trajectory.replace('0.4', '1').replace('0.3', '1');
-  ctx.fillRect(width - padding.right - 130, padding.top + 10, 20, 4);
-  ctx.fillStyle = COLORS.text;
-  ctx.textAlign = 'left';
-  ctx.fillText('Successful', width - padding.right - 105, padding.top + 16);
-
-  ctx.fillStyle = COLORS.trajectoryFailed.replace('0.5', '1').replace('0.4', '1');
-  ctx.fillRect(width - padding.right - 130, padding.top + 30, 20, 4);
-  ctx.fillStyle = COLORS.text;
-  ctx.fillText('Failed', width - padding.right - 105, padding.top + 36);
+  // Redraw zero line
+  ctx.strokeStyle = COLORS.zeroLine;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.moveTo(padding.left, yScale(0));
+  ctx.lineTo(width - padding.right, yScale(0));
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 /**
- * Show tooltip
+ * Show tooltip - PWA style
  */
 function showTooltip(x, y, html) {
   let tooltip = document.getElementById('chartTooltip');
@@ -695,7 +933,7 @@ function showTooltip(x, y, html) {
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
   tooltip.style.left = (x + 15) + 'px';
-  tooltip.style.top = (y + 15) + 'px';
+  tooltip.style.top = (y - 10) + 'px';
 }
 
 /**
@@ -709,44 +947,104 @@ function hideTooltip() {
 }
 
 /**
- * Get chart container styles
+ * Get chart container styles - mobile-first responsive
  */
 export function getChartStyles() {
   return `
-    .chart-container {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 20px;
-    }
-
-    .chart-container canvas {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-
+    /* Chart tooltip - PWA style */
     #chartTooltip {
       position: fixed;
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: rgba(22,27,34,0.95);
+      border: 1px solid #30363d;
       border-radius: 8px;
       padding: 12px 16px;
       font-size: 13px;
       line-height: 1.5;
-      color: var(--text);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      color: #c9d1d9;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
       pointer-events: none;
       z-index: 10000;
       display: none;
-      max-width: 250px;
+      max-width: 280px;
     }
 
     #chartTooltip strong {
       display: block;
-      margin-bottom: 6px;
       font-size: 14px;
+    }
+
+    /* Mobile-first chart containers */
+    .chart-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .chart-container canvas {
+      display: block;
+      min-width: 600px;
+      height: auto;
+    }
+
+    /* Scrollable wrapper for charts on mobile */
+    .chart-scroll-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -12px;
+      padding: 0 12px;
+    }
+
+    /* Chart grid for side-by-side layout */
+    .chart-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    @media (min-width: 1024px) {
+      .chart-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .chart-container canvas {
+        min-width: unset;
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .chart-container {
+        padding: 8px;
+        margin: 8px 0;
+        border-radius: 6px;
+      }
+
+      .chart-container canvas {
+        min-width: 500px;
+      }
+
+      #chartTooltip {
+        font-size: 12px;
+        padding: 10px 12px;
+        max-width: 220px;
+      }
+    }
+
+    /* Mobile scroll indicator */
+    .chart-scroll-hint {
+      display: none;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .chart-scroll-hint {
+        display: block;
+      }
     }
   `;
 }
