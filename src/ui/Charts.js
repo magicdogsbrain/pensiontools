@@ -259,16 +259,23 @@ export function drawTrajectories(canvas, results, options = {}) {
   const years = options.years || 35;
   const startValue = options.startValue || 1000000;
 
-  // Use 95th percentile for max to focus on lower values - positive trajectories overflow at top
-  const allTotals = [];
-  results.forEach(r => {
-    r.hist.forEach(h => {
-      allTotals.push(h.total);
-    });
-  });
-  allTotals.sort((a, b) => a - b);
-  let maxValue = allTotals[Math.floor(allTotals.length * 0.95)] * 1.2;
-  maxValue = Math.max(maxValue, startValue * 1.5);
+  // Focus Y-axis on failed/struggling trajectories
+  // Find the max value among failed runs, or use median if no failures
+  const sampleResults = results.slice(0, 100);
+  const failedRuns = sampleResults.filter(r => r.failed);
+  const successRuns = sampleResults.filter(r => !r.failed);
+
+  let maxValue;
+  if (failedRuns.length > 0) {
+    // Use the starting values of failed runs as reference - show full decline
+    // Cap at 2x the starting value to show context but focus on the decline
+    maxValue = startValue * 2;
+  } else {
+    // No failures - use median final value with some headroom
+    const finals = successRuns.map(r => r.final).sort((a, b) => a - b);
+    const medianFinal = finals[Math.floor(finals.length * 0.5)] || startValue;
+    maxValue = Math.max(medianFinal * 1.3, startValue * 1.5);
+  }
 
   const xScale = (year) => padding.left + (year / years) * chartWidth;
   // Values above max will be clamped to top of chart (overflow)
@@ -299,12 +306,6 @@ export function drawTrajectories(canvas, results, options = {}) {
   for (let y = 0; y <= years; y += 5) {
     ctx.fillText(`Yr ${y}`, xScale(y), height - padding.bottom + 20);
   }
-
-  const sampleResults = results.slice(0, 100);
-
-  // Separate failed and successful runs
-  const failedRuns = sampleResults.filter(r => r.failed);
-  const successRuns = sampleResults.filter(r => !r.failed);
 
   // Store paths for hit detection
   const paths = [];
