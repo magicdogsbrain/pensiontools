@@ -2,7 +2,7 @@
   "name": "Pension Planner",
   "short_name": "Pension",
   "description": "Pension Drawdown Planning Tool with Monte Carlo Stress Testing",
-  "start_url": "./index.html",
+  "start_url": "../index.html",
   "display": "standalone",
   "background_color": "#6366f1",
   "theme_color": "#6366f1",
