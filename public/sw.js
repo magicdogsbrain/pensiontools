@@ -1,10 +1,12 @@
-const CACHE_NAME = 'pension-planner-v9';
+const CACHE_NAME = 'pension-planner-v11';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './favicon.png',
+  './icon.svg'
 ];
 
 self.addEventListener('install', event => {
