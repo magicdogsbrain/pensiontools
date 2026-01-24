@@ -4,16 +4,15 @@
 
 /**
  * Generates a seeded random number generator
- * Uses mulberry32 algorithm for deterministic sequences
+ * Uses sine-based algorithm matching PWA for consistency
  * @param {number} seed - Seed value
  * @returns {function} Random number generator (returns 0-1)
  */
 export function seededRng(seed) {
+  let s = seed;
   return function() {
-    let t = seed += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    s = Math.sin(s) * 10000;
+    return s - Math.floor(s);
   };
 }
 
