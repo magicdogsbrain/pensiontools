@@ -132,22 +132,24 @@ export function checkTaxEfficientMode(params) {
 }
 
 /**
- * Main decision calculation - NEW UNIFIED LOGIC
+ * Main decision calculation - NEW UNIFIED LOGIC (v7.0)
  *
- * This replaces the old two-alternative system with a single recommendation:
+ * This version supports year-level tax efficiency determination:
  *
- * 1. If SIPP + Other would be ABOVE BRL but we have ISA:
- *    - Cap SIPP + Other at BRL
- *    - Use ISA as top-up to reach target net income
+ * 1. If isTaxEfficientYear is true:
+ *    - Use ISA allocation proportionally across remaining months
+ *    - SIPP capped at BRL, ISA makes up the difference
+ *    - Tax boost available when not in protection
  *
- * 2. If we have ISA for remaining tax year months (tax-efficient mode):
- *    - Can use tax-efficient withdrawal
- *    - Tax boost is available if applicable
+ * 2. If isTaxEfficientYear is false:
+ *    - No ISA used (preserve for growth)
+ *    - Draw full SIPP to target (may exceed BRL, pay 40%)
+ *    - Check for protection-induced tax efficiency
  *
- * 3. If we DON'T have enough ISA for remaining months:
- *    - NOT in tax-efficient mode
- *    - Just draw up to Target Gross Salary (may exceed BRL)
- *    - Tax boost logic can still apply
+ * 3. Protection mode:
+ *    - Reduces SIPP draw by protection factor
+ *    - In tax-inefficient mode: if projected annual SIPP drops below BRL,
+ *      can boost back to BRL (protection-induced efficiency)
  *
  * @param {object} params - Full calculation parameters
  * @returns {object} Single unified recommendation
@@ -179,7 +181,13 @@ export function calculateDrawdownRecommendation(params) {
     // History for tax year
     taxYearHistory = [],
     inProtection = false,
-    protectionFactor = 20  // % reduction in protection mode
+    protectionFactor = 20,  // % reduction in protection mode
+
+    // NEW: Year-level tax efficiency (from tax year config)
+    isTaxEfficientYear = true,      // Set during wizard
+    yearlyIsaSavingsAllocation = 0, // Total ISA allocation for year
+    cumulativeIsaSavingsUsed = 0,   // ISA already used this year
+    grossIncomeToDate = 0           // Pre-pension income
   } = params;
 
   // Step 1: Calculate standard SIPP draw (annual)
@@ -216,68 +224,86 @@ export function calculateDrawdownRecommendation(params) {
   const annualNetAtBRL = grossToNet(annualGrossAtBRL, sippCalc.pa, sippCalc.brl, sippCalc.hrl);
   const monthlyNetAtBRL = annualNetAtBRL / 12;
 
-  // Step 4: Check if we need ISA top-up
+  // Step 4: Calculate ISA needs
   const isaNeededMonthly = Math.max(0, monthlyTargetNet - monthlyNetAtBRL);
-
-  // Step 5: Check if we have enough ISA for remaining tax year
   const remainingMonths = getRemainingTaxYearMonths(currentDate);
-  const totalIsaNeeded = isaNeededMonthly * remainingMonths;
-  const hasSufficientIsa = isaBalance >= totalIsaNeeded;
 
-  // Step 6: Determine mode and calculate recommendation
+  // Step 5: Calculate ISA available (from year-level allocation)
+  const remainingIsaAllocation = Math.max(0, yearlyIsaSavingsAllocation - cumulativeIsaSavingsUsed);
+  const monthlyIsaFromAllocation = remainingMonths > 0 ? remainingIsaAllocation / remainingMonths : 0;
+
+  // Step 6: Determine mode based on year-level efficiency flag
   let recommendation;
+  let protectionInducedEfficiency = false;
 
-  if (hasSufficientIsa && isaNeededMonthly > 0) {
-    // TAX-EFFICIENT MODE with ISA top-up
-    // SIPP capped at BRL, ISA makes up the difference
+  if (isTaxEfficientYear) {
+    // TAX-EFFICIENT YEAR MODE
+    // Use ISA allocation to keep SIPP at BRL
+    const monthlyIsaToUse = Math.min(isaNeededMonthly, monthlyIsaFromAllocation);
+
     recommendation = {
       mode: 'tax-efficient',
       monthlySipp: inProtection
         ? monthlySippAtBRL * (1 - protectionFactor / 100)
         : monthlySippAtBRL,
-      monthlyIsa: isaNeededMonthly,
+      monthlyIsa: monthlyIsaToUse,
       monthlyOther,
       monthlyState,
-      reason: 'ISA top-up keeps SIPP+Other at BRL for tax efficiency',
-      taxBoostEligible: !inProtection,  // Tax boost available in this mode
-      isaUsedForTopUp: true
-    };
-  } else if (!hasSufficientIsa && isaNeededMonthly > 0) {
-    // NOT TAX-EFFICIENT - insufficient ISA
-    // Draw up to Target Gross Salary from SIPP (may exceed BRL)
-    const sippToTarget = Math.max(0, targetGross / 12 - monthlyFixedIncome);
-
-    recommendation = {
-      mode: 'standard',
-      monthlySipp: inProtection
-        ? sippToTarget * (1 - protectionFactor / 100)
-        : sippToTarget,
-      monthlyIsa: 0,  // Not using ISA as we don't have enough
-      monthlyOther,
-      monthlyState,
-      reason: `Insufficient ISA for ${remainingMonths} months - drawing to target`,
-      taxBoostEligible: true,  // Tax boost can still apply
-      isaUsedForTopUp: false,
-      warning: `Need £${Math.round(totalIsaNeeded - isaBalance).toLocaleString()} more ISA for tax-efficient mode`
+      reason: monthlyIsaToUse > 0
+        ? 'Tax-efficient year: ISA top-up keeps SIPP at BRL'
+        : 'Tax-efficient year: Target income achieved within BRL',
+      taxBoostEligible: !inProtection,
+      isaUsedForTopUp: monthlyIsaToUse > 0,
+      isTaxEfficientYear: true
     };
   } else {
-    // Target achievable at or below BRL (no ISA needed)
+    // TAX-INEFFICIENT YEAR MODE
+    // Draw full SIPP to target, no ISA used
+    const sippToTarget = Math.max(0, targetGross / 12 - monthlyFixedIncome);
+
+    // Calculate SIPP draw (with protection reduction if applicable)
+    let actualMonthlySipp = inProtection
+      ? sippToTarget * (1 - protectionFactor / 100)
+      : sippToTarget;
+
+    // Check for PROTECTION-INDUCED TAX EFFICIENCY
+    // If protection has reduced SIPP draw such that projected annual is below BRL,
+    // we can boost back up to BRL and effectively become tax-efficient
+    if (inProtection) {
+      const projectedAnnualSipp = calculateProjectedAnnualSipp(
+        taxYearHistory, actualMonthlySipp, remainingMonths
+      );
+      const projectedAnnualTaxable = projectedAnnualSipp + (monthlyFixedIncome * 12) + grossIncomeToDate;
+
+      if (projectedAnnualTaxable < sippCalc.brl) {
+        // We can boost to BRL while staying in basic rate!
+        const brlHeadroom = sippCalc.brl - projectedAnnualTaxable;
+        const boostPerMonth = brlHeadroom / remainingMonths;
+
+        actualMonthlySipp += boostPerMonth;
+        protectionInducedEfficiency = true;
+      }
+    }
+
     recommendation = {
-      mode: 'tax-efficient',
-      monthlySipp: inProtection
-        ? monthlySippAtBRL * (1 - protectionFactor / 100)
-        : monthlySippAtBRL,
-      monthlyIsa: 0,
+      mode: protectionInducedEfficiency ? 'protection-induced-efficient' : 'tax-inefficient',
+      monthlySipp: actualMonthlySipp,
+      monthlyIsa: 0,  // No ISA in tax-inefficient mode
       monthlyOther,
       monthlyState,
-      reason: 'Target income achieved within BRL',
-      taxBoostEligible: !inProtection,
-      isaUsedForTopUp: false
+      reason: protectionInducedEfficiency
+        ? 'Protection reduced income below BRL - boosting to stay in basic rate'
+        : 'Tax-inefficient year: Full SIPP draw to target (ISA preserved for growth)',
+      taxBoostEligible: !inProtection || protectionInducedEfficiency,
+      isaUsedForTopUp: false,
+      isTaxEfficientYear: false,
+      protectionInducedTaxEfficiency: protectionInducedEfficiency
     };
   }
 
   // Step 7: Calculate tax boost opportunity (catch-up from protection periods)
-  const boostInfo = calculateTaxBoost({
+  // Only applies in tax-efficient mode or protection-induced efficiency
+  const boostInfo = (isTaxEfficientYear || protectionInducedEfficiency) ? calculateTaxBoost({
     taxYearHistory,
     remainingMonths,
     brl: sippCalc.brl,
@@ -285,7 +311,7 @@ export function calculateDrawdownRecommendation(params) {
     monthlyFixedIncome,
     inProtection,
     growthSurplus: (equity + bond) - (params.adjEquityMin || 0) - (params.adjBondMin || 0)
-  });
+  }) : { boostAmount: 0, reason: 'Tax-inefficient year - no boost' };
 
   // Step 8: Build final recommendation
   const monthlyTotal = recommendation.monthlySipp +
@@ -295,6 +321,12 @@ export function calculateDrawdownRecommendation(params) {
 
   const annualTaxable = (recommendation.monthlySipp + monthlyFixedIncome) * 12;
   const annualTax = calculateTax(annualTaxable, sippCalc.pa, sippCalc.brl, sippCalc.hrl);
+
+  // Calculate tax that would have been paid in inefficient mode
+  const inefficientSipp = Math.max(0, targetGross / 12 - monthlyFixedIncome);
+  const annualTaxableInefficient = (inefficientSipp + monthlyFixedIncome) * 12;
+  const annualTaxInefficient = calculateTax(annualTaxableInefficient, sippCalc.pa, sippCalc.brl, sippCalc.hrl);
+  const taxSavedAnnual = annualTaxInefficient - annualTax;
 
   return {
     ...recommendation,
@@ -312,7 +344,11 @@ export function calculateDrawdownRecommendation(params) {
       annualTax,
       monthlyTax: annualTax / 12,
       effectiveRate: annualTaxable > 0 ? annualTax / annualTaxable : 0,
-      headroomToBRL: calculateBRLHeadroom(annualTaxable, sippCalc.brl)
+      headroomToBRL: calculateBRLHeadroom(annualTaxable, sippCalc.brl),
+      // NEW: Tax saved vs inefficient scenario
+      annualTaxInefficient,
+      taxSavedAnnual,
+      taxSavedMonthly: taxSavedAnnual / 12
     },
 
     // Totals
@@ -324,10 +360,22 @@ export function calculateDrawdownRecommendation(params) {
 
     // Context
     remainingMonths,
+
+    // ISA tracking (year-level)
+    yearlyIsaSavingsAllocation,
+    cumulativeIsaSavingsUsed,
+    isaSavingsUsedThisMonth: recommendation.monthlyIsa,
+    newCumulativeIsaSavingsUsed: cumulativeIsaSavingsUsed + recommendation.monthlyIsa,
+    remainingIsaAllocation: remainingIsaAllocation - recommendation.monthlyIsa,
+
+    // Legacy fields for compatibility
     isaBalance,
     isaNeededMonthly,
-    totalIsaNeeded,
-    hasSufficientIsa,
+    totalIsaNeeded: isaNeededMonthly * remainingMonths,
+    hasSufficientIsa: isTaxEfficientYear,
+
+    // Protection-induced efficiency flag
+    protectionInducedTaxEfficiency: protectionInducedEfficiency,
 
     // Debug
     calculation: {
@@ -335,9 +383,23 @@ export function calculateDrawdownRecommendation(params) {
       targetNet,
       monthlyTargetNet,
       monthlyGrossAtBRL,
-      monthlyNetAtBRL
+      monthlyNetAtBRL,
+      grossIncomeToDate
     }
   };
+}
+
+/**
+ * Calculates projected annual SIPP based on history and current draw
+ */
+function calculateProjectedAnnualSipp(taxYearHistory, currentMonthlySipp, remainingMonths) {
+  // Sum SIPP draws from history
+  const historicalSipp = taxYearHistory.reduce((sum, h) => sum + (h.sipp || 0), 0);
+
+  // Project remaining months at current rate
+  const projectedRemaining = currentMonthlySipp * remainingMonths;
+
+  return historicalSipp + projectedRemaining;
 }
 
 /**

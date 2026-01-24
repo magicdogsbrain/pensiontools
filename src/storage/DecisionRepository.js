@@ -41,7 +41,7 @@ function getDefaultDecisionDB() {
       statePensionYear: 12      // Years from start until state pension begins
     },
     taxYears: {
-      '25/26': { pa: 12570, brl: 50270, hrl: 125140, cpi: 0.04, other: 0 }
+      // Default tax year with full schema
     },
     history: [],
     lastModified: null,
@@ -194,11 +194,32 @@ export async function saveDecisionSettings(settings) {
  */
 function getDefaultTaxYearConfig() {
   return {
+    // Tax thresholds
     pa: TAX_DEFAULTS.PERSONAL_ALLOWANCE,
     brl: TAX_DEFAULTS.BASIC_RATE_LIMIT,
     hrl: TAX_DEFAULTS.HIGHER_RATE_LIMIT,
+
+    // Previous year's CPI (for salary inflation)
     cpi: 0.04,
-    other: 0
+
+    // Other taxable income (annual)
+    other: 0,
+
+    // ISA/Savings allocation for tax efficiency
+    isaSavingsAllocation: 0,      // Total ISA/Savings available for this year
+    isaSavingsUsed: 0,            // Cumulative used so far this year
+
+    // Tax efficiency mode
+    isTaxEfficient: true,         // Year-level tax efficiency flag
+    taxEfficiencyChoice: null,    // 'efficient', 'reduced', 'inefficient'
+
+    // Mid-year start support
+    grossIncomeToDate: 0,         // Taxable income before starting pension
+    startMonth: 4,                // Month number (4 = April) when started
+
+    // Wizard completion tracking
+    yearSetupComplete: false,     // Has wizard been completed?
+    confirmedSalary: null         // User-confirmed target salary for this year
   };
 }
 
@@ -243,6 +264,57 @@ export async function getTaxYearConfigAsync(taxYear) {
 export async function saveTaxYearConfig(taxYear, config) {
   const db = await loadDecisionDBAsync();
   db.taxYears[taxYear] = { ...getTaxYearConfig(taxYear), ...config };
+  await saveDecisionDB(db);
+}
+
+/**
+ * Updates ISA/Savings usage for a tax year
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @param {number} amountUsed - Amount of ISA/Savings used this month
+ * @returns {Promise<void>}
+ */
+export async function updateIsaSavingsUsed(taxYear, amountUsed) {
+  const db = await loadDecisionDBAsync();
+  const config = db.taxYears[taxYear] || getDefaultTaxYearConfig();
+  config.isaSavingsUsed = (config.isaSavingsUsed || 0) + amountUsed;
+  db.taxYears[taxYear] = config;
+  await saveDecisionDB(db);
+}
+
+/**
+ * Marks a tax year setup as complete
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @returns {Promise<void>}
+ */
+export async function markYearSetupComplete(taxYear) {
+  const db = await loadDecisionDBAsync();
+  const config = db.taxYears[taxYear] || getDefaultTaxYearConfig();
+  config.yearSetupComplete = true;
+  db.taxYears[taxYear] = config;
+  await saveDecisionDB(db);
+}
+
+/**
+ * Checks if a tax year setup is complete
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @returns {Promise<boolean>}
+ */
+export async function isYearSetupComplete(taxYear) {
+  const config = await getTaxYearConfigAsync(taxYear);
+  return config.yearSetupComplete === true;
+}
+
+/**
+ * Resets a tax year setup (allows re-running wizard)
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @returns {Promise<void>}
+ */
+export async function resetYearSetup(taxYear) {
+  const db = await loadDecisionDBAsync();
+  const config = db.taxYears[taxYear] || getDefaultTaxYearConfig();
+  config.yearSetupComplete = false;
+  config.isaSavingsUsed = 0;
+  db.taxYears[taxYear] = config;
   await saveDecisionDB(db);
 }
 
@@ -405,4 +477,52 @@ export async function wipeAllDecisionData() {
   });
 
   invalidateCache();
+}
+
+/**
+ * Calculates state pension for a given tax year based on settings
+ * State pension starts after statePensionYear years from the first tax year
+ *
+ * @param {string} taxYear - Tax year in 'YY/YY' format
+ * @returns {Promise<object>} { amount: number, yearsUntil: number, isReceiving: boolean }
+ */
+export async function getStatePensionForTaxYear(taxYear) {
+  const settings = await getDecisionSettingsAsync();
+  const allTaxYears = await getAllTaxYearsAsync();
+
+  const statePensionBase = settings.statePension || 0;
+  const statePensionYear = settings.statePensionYear || 12;
+
+  // Calculate which year number this tax year represents
+  const sortedTaxYears = Object.keys(allTaxYears).sort();
+  const yearIndex = sortedTaxYears.indexOf(taxYear);
+
+  // If this tax year doesn't exist yet, it's the next one
+  const effectiveYearNumber = yearIndex >= 0 ? yearIndex : sortedTaxYears.length;
+
+  // Calculate years until state pension
+  const yearsUntil = Math.max(0, statePensionYear - effectiveYearNumber);
+
+  // Is state pension being received this year?
+  const isReceiving = effectiveYearNumber >= statePensionYear;
+
+  // If receiving, calculate inflated amount
+  // State pension inflates with CPI each year from when we started
+  let amount = 0;
+  if (isReceiving) {
+    let cumulativeInflation = 1;
+    for (let i = 0; i < effectiveYearNumber; i++) {
+      const ty = sortedTaxYears[i];
+      const config = allTaxYears[ty];
+      const cpi = config?.cpi || 0.025;
+      cumulativeInflation *= (1 + cpi);
+    }
+    amount = statePensionBase * cumulativeInflation;
+  }
+
+  return {
+    amount,           // Annual amount (0 if not receiving yet)
+    yearsUntil,       // Years until state pension starts
+    isReceiving       // Whether receiving this tax year
+  };
 }

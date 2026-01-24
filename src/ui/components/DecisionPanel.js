@@ -27,16 +27,49 @@ export function buildDecisionHTML(decision) {
 
   let html = '';
 
-  // Mode indicator
-  const modeClass = d.taxEfficient ? 'success' : 'warning';
-  const modeLabel = d.taxEfficient ? 'Tax-Efficient Mode' : 'Standard Mode';
-  const modeIcon = d.taxEfficient ? '✓' : '!';
+  // Mode indicator - now shows year-level tax efficiency
+  const isTaxEfficientYear = d.isTaxEfficientYear ?? d.taxEfficient;
+  const isProtectionInduced = d.protectionInducedTaxEfficiency || false;
+
+  let modeClass, modeLabel, modeIcon;
+  if (isProtectionInduced) {
+    modeClass = 'info';
+    modeLabel = 'Protection-Induced Tax Efficiency';
+    modeIcon = '↑';
+  } else if (isTaxEfficientYear) {
+    modeClass = 'success';
+    modeLabel = 'Tax-Efficient Year';
+    modeIcon = '✓';
+  } else {
+    modeClass = 'warning';
+    modeLabel = 'Tax-Inefficient Year';
+    modeIcon = '!';
+  }
 
   html += `<div class="decision-mode ${modeClass}">
     <span class="mode-icon">${modeIcon}</span>
     <span class="mode-label">${modeLabel}</span>
     ${d.inProtection ? '<span class="protection-badge">PROTECTION</span>' : ''}
   </div>`;
+
+  // ISA/Savings allocation progress (if tax-efficient year)
+  if (isTaxEfficientYear && d.yearlyIsaSavingsAllocation > 0) {
+    const used = d.cumulativeIsaSavingsUsed || 0;
+    const total = d.yearlyIsaSavingsAllocation;
+    const remaining = Math.max(0, total - used - (d.isaDraw || 0));
+    const percentUsed = total > 0 ? ((used + (d.isaDraw || 0)) / total) * 100 : 0;
+
+    html += `<div class="isa-progress-card">
+      <h4>ISA/Savings Allocation</h4>
+      <div class="isa-progress-bar">
+        <div class="isa-progress-fill" style="width: ${Math.min(percentUsed, 100)}%"></div>
+      </div>
+      <div class="isa-progress-stats">
+        <span>Used: ${formatCurrency(used + (d.isaDraw || 0))} of ${formatCurrency(total)}</span>
+        <span>Remaining: ${formatCurrency(remaining)}</span>
+      </div>
+    </div>`;
+  }
 
   // Alerts
   if (d.alerts && d.alerts.length > 0) {
@@ -172,19 +205,64 @@ export function buildDecisionHTML(decision) {
 
   html += '</div>'; // End fund-status
 
-  // Tax information
+  // Tax information - enhanced with monthly, YTD, and projected
   html += '<div class="tax-info">';
   html += '<h4>Tax Summary</h4>';
-  html += '<div class="tax-grid">';
-  html += `<div class="tax-item"><span>Personal Allowance:</span><span>${formatCurrency(d.pa)}</span></div>`;
-  html += `<div class="tax-item"><span>Basic Rate Limit:</span><span>${formatCurrency(d.brl)}</span></div>`;
 
+  // Tax thresholds row
+  html += '<div class="tax-thresholds">';
+  html += `<div class="tax-threshold-item"><span class="label">PA:</span><span>${formatCurrency(d.pa)}</span></div>`;
+  html += `<div class="tax-threshold-item"><span class="label">BRL:</span><span>${formatCurrency(d.brl)}</span></div>`;
   if (details.taxInfo) {
-    html += `<div class="tax-item"><span>Projected Annual Taxable:</span><span>${formatCurrency(details.taxInfo.annualTaxable)}</span></div>`;
-    html += `<div class="tax-item"><span>Headroom to BRL:</span><span>${formatCurrency(details.taxInfo.headroomToBRL)}</span></div>`;
-    html += `<div class="tax-item"><span>Estimated Annual Tax:</span><span>${formatCurrency(details.taxInfo.annualTax)}</span></div>`;
+    html += `<div class="tax-threshold-item"><span class="label">Headroom:</span><span class="${details.taxInfo.headroomToBRL > 0 ? 'success' : 'warning'}">${formatCurrency(details.taxInfo.headroomToBRL)}</span></div>`;
   }
   html += '</div>';
+
+  // Tax comparison table (Monthly | YTD | Projected)
+  html += '<div class="tax-comparison">';
+  html += '<div class="tax-comparison-header">';
+  html += '<div></div><div>Monthly</div><div>YTD</div><div>Projected</div>';
+  html += '</div>';
+
+  // Tax paid row
+  const monthlyTax = details.taxInfo?.monthlyTax || (annualTax / 12);
+  const ytdTax = d.taxPaidYTD || monthlyTax;
+  const projectedTax = d.taxProjectedAnnual || details.taxInfo?.annualTax || annualTax;
+
+  html += '<div class="tax-comparison-row">';
+  html += '<div class="label">Tax Paid</div>';
+  html += `<div>${formatCurrency(monthlyTax)}</div>`;
+  html += `<div>${formatCurrency(ytdTax)}</div>`;
+  html += `<div>${formatCurrency(projectedTax)}</div>`;
+  html += '</div>';
+
+  // Tax saved row (if tax-efficient)
+  if (isTaxEfficientYear || details.taxInfo?.taxSavedAnnual > 0) {
+    const monthlySaved = d.taxSavedMonthly || details.taxInfo?.taxSavedMonthly || 0;
+    const ytdSaved = d.taxSavedYTD || monthlySaved;
+    const projectedSaved = d.taxSavedProjectedAnnual || details.taxInfo?.taxSavedAnnual || 0;
+
+    if (projectedSaved > 0) {
+      html += '<div class="tax-comparison-row saved">';
+      html += '<div class="label">Tax Saved</div>';
+      html += `<div class="success">-${formatCurrency(monthlySaved)}</div>`;
+      html += `<div class="success">-${formatCurrency(ytdSaved)}</div>`;
+      html += `<div class="success">-${formatCurrency(projectedSaved)}</div>`;
+      html += '</div>';
+    }
+  }
+
+  html += '</div>'; // End tax-comparison
+
+  // Effective tax rate
+  if (details.taxInfo) {
+    const effectiveRate = details.taxInfo.effectiveRate * 100;
+    html += `<div class="effective-rate">
+      <span>Effective Tax Rate:</span>
+      <span class="${effectiveRate <= 20 ? 'success' : effectiveRate <= 40 ? 'warning' : 'danger'}">${effectiveRate.toFixed(1)}%</span>
+    </div>`;
+  }
+
   html += '</div>'; // End tax-info
 
   // Rebalancing recommendations
@@ -611,6 +689,153 @@ export function getDecisionPanelStyles() {
       overflow-x: auto;
       font-size: 12px;
       color: var(--text-muted);
+    }
+
+    /* Info mode (protection-induced efficiency) */
+    .decision-mode.info {
+      background: rgba(126, 184, 218, 0.15);
+      border: 1px solid rgba(126, 184, 218, 0.3);
+      color: #7eb8da;
+    }
+
+    /* ISA Progress Card */
+    .isa-progress-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+
+    .isa-progress-card h4 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .isa-progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .isa-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #5a9aba);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .isa-progress-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Tax Thresholds Row */
+    .tax-thresholds {
+      display: flex;
+      gap: 20px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .tax-threshold-item {
+      display: flex;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .tax-threshold-item .label {
+      color: var(--text-muted);
+    }
+
+    .tax-threshold-item .success {
+      color: var(--success);
+    }
+
+    .tax-threshold-item .warning {
+      color: var(--warning);
+    }
+
+    /* Tax Comparison Table */
+    .tax-comparison {
+      margin: 16px 0;
+    }
+
+    .tax-comparison-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .tax-comparison-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .tax-comparison-row:last-child {
+      border-bottom: none;
+    }
+
+    .tax-comparison-row .label {
+      color: var(--text-muted);
+    }
+
+    .tax-comparison-row.saved {
+      background: rgba(46, 160, 67, 0.05);
+    }
+
+    .tax-comparison-row .success {
+      color: var(--success);
+    }
+
+    .tax-comparison-row .warning {
+      color: var(--warning);
+    }
+
+    .tax-comparison-row .danger {
+      color: var(--danger);
+    }
+
+    /* Effective Rate */
+    .effective-rate {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--card-alt);
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .effective-rate .success {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .effective-rate .warning {
+      color: var(--warning);
+      font-weight: 600;
+    }
+
+    .effective-rate .danger {
+      color: var(--danger);
+      font-weight: 600;
     }
   `;
 }

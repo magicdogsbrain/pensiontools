@@ -71,7 +71,22 @@ export function createDecision(params = {}) {
     alerts: params.alerts || [],
 
     // Debug information
-    calculationDetails: params.calculationDetails || {}
+    calculationDetails: params.calculationDetails || {},
+
+    // NEW: Year-level ISA/Savings tracking
+    yearlyIsaSavingsAllocation: params.yearlyIsaSavingsAllocation ?? 0,
+    cumulativeIsaSavingsUsed: params.cumulativeIsaSavingsUsed ?? 0,
+    isTaxEfficientYear: params.isTaxEfficientYear ?? true,
+
+    // NEW: Tax tracking (monthly, YTD, projected)
+    taxPaidYTD: params.taxPaidYTD ?? 0,
+    taxProjectedAnnual: params.taxProjectedAnnual ?? 0,
+    taxSavedMonthly: params.taxSavedMonthly ?? 0,
+    taxSavedYTD: params.taxSavedYTD ?? 0,
+    taxSavedProjectedAnnual: params.taxSavedProjectedAnnual ?? 0,
+
+    // NEW: Protection-induced tax efficiency
+    protectionInducedTaxEfficiency: params.protectionInducedTaxEfficiency ?? false
   };
 }
 
@@ -86,13 +101,16 @@ export function decisionToHistory(decision) {
   const annualTaxable = monthlyTaxable * 12;
   const pa = decision.pa || 12570;
   const brl = decision.brl || 50270;
+  const hrl = decision.hrl || 125140;
 
   let annualTax = 0;
   if (annualTaxable > pa) {
     if (annualTaxable <= brl) {
       annualTax = (annualTaxable - pa) * 0.2;
-    } else {
+    } else if (annualTaxable <= hrl) {
       annualTax = (brl - pa) * 0.2 + (annualTaxable - brl) * 0.4;
+    } else {
+      annualTax = (brl - pa) * 0.2 + (hrl - brl) * 0.4 + (annualTaxable - hrl) * 0.45;
     }
   }
   const monthlyTax = annualTax / 12;
@@ -144,7 +162,24 @@ export function decisionToHistory(decision) {
     boostEligible: decision.boostEligible || false,
 
     // Rebalancing
-    rebal: decision.rebalanceActions ? decision.rebalanceActions.join('; ') : ''
+    rebal: decision.rebalanceActions ? decision.rebalanceActions.join('; ') : '',
+
+    // NEW: ISA/Savings tracking
+    yearlyIsaSavingsAllocation: decision.yearlyIsaSavingsAllocation || 0,
+    isaSavingsUsedThisMonth: decision.isaDraw || 0,
+    cumulativeIsaSavingsUsed: decision.cumulativeIsaSavingsUsed || 0,
+
+    // NEW: Tax tracking (monthly, YTD, projected)
+    taxPaidMonthly: monthlyTax,
+    taxPaidYTD: decision.taxPaidYTD || monthlyTax,
+    taxProjectedAnnual: decision.taxProjectedAnnual || annualTax,
+    taxSavedMonthly: decision.taxSavedMonthly || 0,
+    taxSavedYTD: decision.taxSavedYTD || 0,
+    taxSavedProjectedAnnual: decision.taxSavedProjectedAnnual || 0,
+
+    // NEW: Year-level tax efficiency flags
+    isTaxEfficientYear: decision.isTaxEfficientYear ?? true,
+    protectionInducedTaxEfficiency: decision.protectionInducedTaxEfficiency || false
   };
 }
 

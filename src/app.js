@@ -66,6 +66,14 @@ import {
   getDecisionPanelStyles
 } from './ui/components/DecisionPanel.js';
 
+import {
+  initTaxYearWizard,
+  checkWizardNeeded,
+  showWizard as showTaxYearWizard,
+  hideWizard as hideTaxYearWizard,
+  getTaxYearWizardStyles
+} from './ui/components/TaxYearSetupWizard.js';
+
 // Utils
 import {
   getTaxYear,
@@ -336,6 +344,13 @@ export {
   // UI
   renderDecisionPanel,
   getDecisionPanelStyles,
+
+  // Tax Year Wizard
+  initTaxYearWizard,
+  checkWizardNeeded,
+  showTaxYearWizard,
+  hideTaxYearWizard,
+  getTaxYearWizardStyles,
 
   // Constants
   VERSION

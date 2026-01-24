@@ -231,3 +231,152 @@ export function getTaxBandBreakdown(gross, pa, brl, hrl = TAX_DEFAULTS.HIGHER_RA
               (inAdditionalRate * TAX_DEFAULTS.ADDITIONAL_RATE)
   };
 }
+
+/**
+ * Calculates comprehensive tax comparison for a decision
+ * Compares actual tax-efficient scenario vs inefficient scenario (all SIPP)
+ *
+ * @param {object} params - Calculation parameters
+ * @returns {object} Tax comparison with monthly, YTD, and projected figures
+ */
+export function calculateTaxComparison(params) {
+  const {
+    monthlySipp,        // SIPP draw this month
+    monthlyIsa,         // ISA draw this month (tax-free)
+    monthlyOther,       // Other taxable income this month
+    monthlyStatePension, // State pension this month
+    pa,
+    brl,
+    hrl = TAX_DEFAULTS.HIGHER_RATE_LIMIT,
+    taxableIncomeYTD = 0,  // Taxable income so far this year (before this month)
+    remainingMonths = 12,  // Months remaining including this one
+    grossIncomeToDate = 0  // Pre-pension income (employment etc)
+  } = params;
+
+  // Monthly taxable (SIPP + Other + State - ISA is tax-free)
+  const monthlyTaxable = monthlySipp + monthlyOther + monthlyStatePension;
+
+  // YTD taxable after this month
+  const ytdTaxable = taxableIncomeYTD + monthlyTaxable + grossIncomeToDate;
+
+  // Project annual based on repeating this month's income
+  const projectedAnnualTaxable = grossIncomeToDate + ytdTaxable + (monthlyTaxable * (remainingMonths - 1));
+
+  // Calculate actual taxes
+  const monthlyTaxActual = calculateTax(monthlyTaxable * 12, pa, brl, hrl) / 12;
+  const ytdTaxActual = calculateTax(ytdTaxable, pa, brl, hrl);
+  const projectedTaxActual = calculateTax(projectedAnnualTaxable, pa, brl, hrl);
+
+  // Calculate inefficient scenario taxes (what if ISA was drawn from SIPP instead)
+  const monthlyTaxableInefficient = monthlySipp + monthlyIsa + monthlyOther + monthlyStatePension;
+  const ytdTaxableInefficient = taxableIncomeYTD + monthlyTaxableInefficient + grossIncomeToDate;
+  const projectedAnnualTaxableInefficient = grossIncomeToDate + ytdTaxableInefficient +
+    (monthlyTaxableInefficient * (remainingMonths - 1));
+
+  const monthlyTaxInefficient = calculateTax(monthlyTaxableInefficient * 12, pa, brl, hrl) / 12;
+  const ytdTaxInefficient = calculateTax(ytdTaxableInefficient, pa, brl, hrl);
+  const projectedTaxInefficient = calculateTax(projectedAnnualTaxableInefficient, pa, brl, hrl);
+
+  return {
+    // Monthly figures
+    taxPaidMonthly: monthlyTaxActual,
+    taxSavedMonthly: monthlyTaxInefficient - monthlyTaxActual,
+    taxIfInefficientMonthly: monthlyTaxInefficient,
+
+    // YTD figures
+    taxPaidYTD: ytdTaxActual,
+    taxSavedYTD: ytdTaxInefficient - ytdTaxActual,
+    taxIfInefficientYTD: ytdTaxInefficient,
+
+    // Projected annual figures
+    taxProjectedAnnual: projectedTaxActual,
+    taxSavedProjectedAnnual: projectedTaxInefficient - projectedTaxActual,
+    taxIfInefficientProjectedAnnual: projectedTaxInefficient,
+
+    // Additional info
+    monthlyTaxable,
+    ytdTaxable,
+    projectedAnnualTaxable,
+    effectiveRateMonthly: monthlyTaxable > 0 ? monthlyTaxActual / monthlyTaxable : 0,
+    effectiveRateProjected: projectedAnnualTaxable > 0 ? projectedTaxActual / projectedAnnualTaxable : 0
+  };
+}
+
+/**
+ * Calculates YTD tax from history records
+ *
+ * @param {Array} history - Array of history records for the tax year
+ * @param {number} pa - Personal Allowance
+ * @param {number} brl - Basic Rate Limit
+ * @param {number} hrl - Higher Rate Limit
+ * @param {number} grossIncomeToDate - Pre-pension income
+ * @returns {object} YTD tax summary
+ */
+export function calculateYTDTaxFromHistory(history, pa, brl, hrl = TAX_DEFAULTS.HIGHER_RATE_LIMIT, grossIncomeToDate = 0) {
+  // Sum up all taxable income from history
+  let totalTaxable = grossIncomeToDate;
+  let totalIsa = 0;
+
+  for (const record of history) {
+    totalTaxable += (record.sipp || 0) + (record.other || 0) + (record.state || 0);
+    totalIsa += record.isa || 0;
+  }
+
+  const actualTax = calculateTax(totalTaxable, pa, brl, hrl);
+
+  // What would tax have been if ISA was taxable
+  const inefficientTaxable = totalTaxable + totalIsa;
+  const inefficientTax = calculateTax(inefficientTaxable, pa, brl, hrl);
+
+  return {
+    totalTaxable,
+    totalIsa,
+    taxPaidYTD: actualTax,
+    taxSavedYTD: inefficientTax - actualTax,
+    taxIfInefficientYTD: inefficientTax,
+    monthsRecorded: history.length
+  };
+}
+
+/**
+ * Projects annual tax based on current trajectory
+ *
+ * @param {object} params - Projection parameters
+ * @returns {object} Projected annual tax
+ */
+export function projectAnnualTax(params) {
+  const {
+    ytdTaxable,           // Taxable income so far
+    ytdIsa,               // ISA used so far
+    remainingMonths,      // Months left in tax year
+    expectedMonthlySipp,  // Expected monthly SIPP going forward
+    expectedMonthlyIsa,   // Expected monthly ISA going forward
+    expectedMonthlyOther, // Expected monthly other income
+    expectedMonthlyState, // Expected monthly state pension
+    pa,
+    brl,
+    hrl = TAX_DEFAULTS.HIGHER_RATE_LIMIT
+  } = params;
+
+  // Project remaining taxable income
+  const remainingTaxable = (expectedMonthlySipp + expectedMonthlyOther + expectedMonthlyState) * remainingMonths;
+  const remainingIsa = expectedMonthlyIsa * remainingMonths;
+
+  const projectedAnnualTaxable = ytdTaxable + remainingTaxable;
+  const projectedAnnualIsa = ytdIsa + remainingIsa;
+
+  const projectedTax = calculateTax(projectedAnnualTaxable, pa, brl, hrl);
+
+  // Inefficient projection (ISA as taxable)
+  const projectedTaxableInefficient = projectedAnnualTaxable + projectedAnnualIsa;
+  const projectedTaxInefficient = calculateTax(projectedTaxableInefficient, pa, brl, hrl);
+
+  return {
+    projectedAnnualTaxable,
+    projectedAnnualIsa,
+    taxProjectedAnnual: projectedTax,
+    taxSavedProjectedAnnual: projectedTaxInefficient - projectedTax,
+    taxIfInefficientProjected: projectedTaxInefficient,
+    effectiveRate: projectedAnnualTaxable > 0 ? projectedTax / projectedAnnualTaxable : 0
+  };
+}

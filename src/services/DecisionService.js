@@ -19,7 +19,8 @@ import {
   getTaxYearHistory,
   addHistoryRecord,
   getAllTaxYears,
-  getAllTaxYearsAsync
+  getAllTaxYearsAsync,
+  updateIsaSavingsUsed
 } from '../storage/DecisionRepository.js';
 
 /**
@@ -494,6 +495,11 @@ export async function saveDecision(decision) {
   historyRecord.stdSipp = decision.sippDraw - (decision.boostAmount || 0);
 
   await addHistoryRecord(historyRecord);
+
+  // Update ISA/Savings usage for the tax year if any ISA was used
+  if (decision.isaDraw && decision.isaDraw > 0 && decision.taxYear) {
+    await updateIsaSavingsUsed(decision.taxYear, decision.isaDraw);
+  }
 }
 
 /**

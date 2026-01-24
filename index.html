@@ -898,6 +898,9 @@
   <!-- Setup Wizard Container (shown for new users) -->
   <div id="setupWizard" style="display: none;"></div>
 
+  <!-- Tax Year Setup Wizard Container (shown when calculating for unconfigured tax year) -->
+  <div id="taxYearWizard" style="display: none;"></div>
+
   <!-- Main Application (hidden until authenticated) -->
   <div id="mainApp" class="hidden">
     <div class="app-container">
@@ -1459,6 +1462,15 @@
       getSetupWizardStyles
     } from './src/ui/components/SetupWizard.js';
 
+    // Import tax year setup wizard
+    import {
+      initTaxYearWizard,
+      checkWizardNeeded,
+      showWizard as showTaxYearWizard,
+      hideWizard as hideTaxYearWizard,
+      getTaxYearWizardStyles
+    } from './src/ui/components/TaxYearSetupWizard.js';
+
     // Import storage for delete and checking data
     import { deleteHistoryRecord } from './src/storage/DecisionRepository.js';
 
@@ -1482,7 +1494,7 @@
 
     // Inject component styles
     const styleEl = document.createElement('style');
-    styleEl.textContent = getDecisionPanelStyles() + getAuthScreenStyles() + getSetupWizardStyles() + getChartStyles();
+    styleEl.textContent = getDecisionPanelStyles() + getAuthScreenStyles() + getSetupWizardStyles() + getTaxYearWizardStyles() + getChartStyles();
     document.head.appendChild(styleEl);
 
     // ============================================================
@@ -2082,6 +2094,13 @@
       const BRL = taxYearConfig.brl || 50270;
       const OTHER = taxYearConfig.other || 0;
 
+      // Year-level tax efficiency settings (from wizard)
+      const isTaxEfficientYear = taxYearConfig.isTaxEfficient !== false; // Default true
+      const yearlyIsaSavingsAllocation = taxYearConfig.isaSavingsAllocation || 0;
+      const isaSavingsUsedSoFar = taxYearConfig.isaSavingsUsed || 0;
+      const grossIncomeToDate = taxYearConfig.grossIncomeToDate || 0;
+      const confirmedSalary = taxYearConfig.confirmedSalary || settings.baseSalary;
+
       // State pension comes from decision settings, not tax year config
       // It starts after statePensionYear (e.g., year 12) and inflates with CPI
       const baseStatePension = settings.statePension || 0;
@@ -2134,72 +2153,139 @@
         inProtection = true;
       }
 
-      // Calculate SIPP and ISA draws
-      const target = settings.baseSalary * cumInf;
+      // Calculate remaining months in tax year
+      const remainingMonths = month >= 4 ? (16 - month) : (4 - month);
+      const effectiveRemainingMonths = Math.max(1, remainingMonths);
+
+      // Use confirmed salary from wizard, or base salary with inflation
+      const target = confirmedSalary * cumInf;
       const other = OTHER + STATE;
       const targetNet = grossToNetIncome(target, PA, BRL);
 
-      // SIPP draw: fill to target or BRL, whichever is lower
-      const maxGross = Math.min(target, BRL);
-      const stdSipp = Math.max(0, maxGross - other);
-
-      // ISA only needed if target exceeds BRL (to make up net shortfall)
-      const netAtMaxGross = grossToNetIncome(Math.min(other + stdSipp, BRL), PA, BRL);
-      const stdIsa = Math.max(0, targetNet - netAtMaxGross);
-
+      // Calculate ISA/SIPP based on year-level tax efficiency mode
       let sipp, isa, note;
       let boostAmount = 0;
+      let protectionInducedTaxEfficiency = false;
+      let isaSavingsUsedThisMonth = 0;
 
-      if (inProtection) {
-        sipp = (stdSipp / 12) * (1 - (settings.protectionFactor || 20) / 100);
-        isa = stdIsa / 12;
-        note = 'Protection';
-      } else {
-        sipp = stdSipp / 12;
-        isa = stdIsa / 12;
-        note = 'Standard';
+      // Calculate remaining ISA allocation
+      const remainingIsaAllocation = Math.max(0, yearlyIsaSavingsAllocation - isaSavingsUsedSoFar);
+      const monthlyIsaFromAllocation = remainingIsaAllocation / effectiveRemainingMonths;
 
-        // TAX BOOST: Catch up on protection shortfall
-        const taxYearStart = month >= 4 ? year : year - 1;
-        const thisTaxYearHistory = priorHistory.filter(h => {
-          const [hy, hm] = h.date.split('-').map(Number);
-          const hTaxYearStart = hm >= 4 ? hy : hy - 1;
-          return hTaxYearStart === taxYearStart;
-        });
+      if (isTaxEfficientYear) {
+        // TAX-EFFICIENT MODE: Use ISA to keep SIPP at/below BRL
+        const monthlyFixedIncome = other / 12;
 
-        let protectionShortfall = 0;
-        let annualSippSoFar = 0;
+        // Calculate remaining BRL headroom accounting for income-to-date
+        const remainingBrlHeadroom = Math.max(0, BRL - grossIncomeToDate);
+        const maxMonthlySippAtBrl = Math.max(0, (remainingBrlHeadroom / effectiveRemainingMonths) - monthlyFixedIncome);
 
-        thisTaxYearHistory.forEach(h => {
-          annualSippSoFar += h.sipp || 0;
-          if (h.inProtection && h.stdSipp) {
-            protectionShortfall += (h.stdSipp - h.sipp);
-          }
-          if (h.boostAmount > 0) {
-            protectionShortfall -= h.boostAmount;
-          }
-        });
+        // Monthly target gross
+        const monthlyTargetGross = target / 12;
 
-        if (protectionShortfall > 0) {
-          let monthsRemaining = month >= 4 ? (16 - month) : (4 - month);
-          if (monthsRemaining < 1) monthsRemaining = 1;
+        // SIPP capped at BRL-optimal level
+        const stdSipp = Math.min(monthlyTargetGross - monthlyFixedIncome, maxMonthlySippAtBrl);
 
-          const projectedAnnualTaxable = annualSippSoFar + sipp * monthsRemaining + other * monthsRemaining / 12;
-          const brlHeadroom = BRL - projectedAnnualTaxable;
-          const surplus = totalGrowth - minGrowth - (settings.recoveryBuffer || 10000);
+        // ISA needed to reach target
+        const isaNeeded = Math.max(0, monthlyTargetGross - monthlyFixedIncome - stdSipp);
+        const isaToUse = Math.min(isaNeeded, monthlyIsaFromAllocation);
+        isaSavingsUsedThisMonth = isaToUse;
 
-          if (brlHeadroom > 0 && surplus > 0) {
-            const maxBoostFromBRL = brlHeadroom / monthsRemaining;
-            const catchUpPerMonth = protectionShortfall / monthsRemaining;
-            const maxBoostFromSurplus = surplus / monthsRemaining;
+        if (inProtection) {
+          sipp = stdSipp * (1 - (settings.protectionFactor || 20) / 100);
+          isa = isaToUse;
+          note = 'Protection';
+        } else {
+          sipp = stdSipp;
+          isa = isaToUse;
+          note = 'Tax-Efficient';
 
-            boostAmount = Math.min(catchUpPerMonth, maxBoostFromBRL, maxBoostFromSurplus);
+          // TAX BOOST: Catch up on protection shortfall (existing logic)
+          const taxYearStart = month >= 4 ? year : year - 1;
+          const thisTaxYearHistory = priorHistory.filter(h => {
+            const [hy, hm] = h.date.split('-').map(Number);
+            const hTaxYearStart = hm >= 4 ? hy : hy - 1;
+            return hTaxYearStart === taxYearStart;
+          });
 
-            if (boostAmount > 50) {
-              sipp += boostAmount;
-              note = 'Tax Boost';
+          let protectionShortfall = 0;
+          let annualSippSoFar = 0;
+
+          thisTaxYearHistory.forEach(h => {
+            annualSippSoFar += h.sipp || 0;
+            if (h.inProtection && h.stdSipp) {
+              protectionShortfall += (h.stdSipp - h.sipp);
+            }
+            if (h.boostAmount > 0) {
+              protectionShortfall -= h.boostAmount;
+            }
+          });
+
+          if (protectionShortfall > 0) {
+            const projectedAnnualTaxable = annualSippSoFar + sipp * effectiveRemainingMonths + other;
+            const brlHeadroom = BRL - projectedAnnualTaxable;
+            const surplus = totalGrowth - minGrowth - (settings.recoveryBuffer || 10000);
+
+            if (brlHeadroom > 0 && surplus > 0) {
+              const maxBoostFromBRL = brlHeadroom / effectiveRemainingMonths;
+              const catchUpPerMonth = protectionShortfall / effectiveRemainingMonths;
+              const maxBoostFromSurplus = surplus / effectiveRemainingMonths;
+
+              boostAmount = Math.min(catchUpPerMonth, maxBoostFromBRL, maxBoostFromSurplus);
+
+              if (boostAmount > 50) {
+                sipp += boostAmount;
+                note = 'Tax Boost';
+              }
             }
           }
+        }
+      } else {
+        // TAX-INEFFICIENT MODE: Full SIPP draw to target, no ISA
+        const monthlyTargetGross = target / 12;
+        const monthlyFixedIncome = other / 12;
+        const stdSipp = Math.max(0, monthlyTargetGross - monthlyFixedIncome);
+
+        isa = 0; // No ISA in tax-inefficient mode
+
+        if (inProtection) {
+          sipp = stdSipp * (1 - (settings.protectionFactor || 20) / 100);
+          note = 'Protection';
+
+          // Check for protection-induced tax efficiency
+          // If protection has reduced projected annual taxable below BRL, we can boost to BRL
+          const taxYearStart = month >= 4 ? year : year - 1;
+          const thisTaxYearHistory = priorHistory.filter(h => {
+            const [hy, hm] = h.date.split('-').map(Number);
+            const hTaxYearStart = hm >= 4 ? hy : hy - 1;
+            return hTaxYearStart === taxYearStart;
+          });
+
+          let annualSippSoFar = 0;
+          thisTaxYearHistory.forEach(h => {
+            annualSippSoFar += h.sipp || 0;
+          });
+
+          const projectedAnnualTaxable = annualSippSoFar + sipp * effectiveRemainingMonths + other;
+
+          if (projectedAnnualTaxable < BRL) {
+            // Protection has brought us below BRL - we can boost back up to BRL
+            const brlHeadroom = BRL - projectedAnnualTaxable;
+            const maxBoostPerMonth = brlHeadroom / effectiveRemainingMonths;
+            const surplus = totalGrowth - minGrowth - (settings.recoveryBuffer || 10000);
+
+            if (surplus > 0 && maxBoostPerMonth > 50) {
+              boostAmount = Math.min(maxBoostPerMonth, surplus / effectiveRemainingMonths);
+              if (boostAmount > 50) {
+                sipp += boostAmount;
+                protectionInducedTaxEfficiency = true;
+                note = 'Protection-Induced Efficiency';
+              }
+            }
+          }
+        } else {
+          sipp = stdSipp;
+          note = 'Tax-Inefficient';
         }
       }
 
@@ -2288,18 +2374,49 @@
       // Net = gross taxable - tax + ISA (tax-free)
       const monthlyNet = monthlyTaxable - (annualTax / 12) + isa;
 
+      // Calculate YTD tax from this year's history
+      const taxYearStart = month >= 4 ? year : year - 1;
+      const thisTaxYearHistory = priorHistory.filter(h => {
+        const [hy, hm] = h.date.split('-').map(Number);
+        const hTaxYearStart = hm >= 4 ? hy : hy - 1;
+        return hTaxYearStart === taxYearStart;
+      });
+
+      let taxPaidYTD = thisTaxYearHistory.reduce((sum, h) => sum + (h.taxPaidMonthly || h.monthlyTax || 0), 0);
+      taxPaidYTD += annualTax / 12; // Add this month
+
+      // Calculate projected annual tax
+      const monthsPassed = thisTaxYearHistory.length + 1;
+      const taxProjectedAnnual = (taxPaidYTD / monthsPassed) * 12;
+
+      // Calculate tax saved vs inefficient scenario
+      const inefficientMonthlyTaxable = (target / 12); // Full target draw
+      let inefficientAnnualTax = 0;
+      if (inefficientMonthlyTaxable * 12 > PA) {
+        if (inefficientMonthlyTaxable * 12 <= BRL) {
+          inefficientAnnualTax = (inefficientMonthlyTaxable * 12 - PA) * 0.2;
+        } else {
+          inefficientAnnualTax = (BRL - PA) * 0.2 + (inefficientMonthlyTaxable * 12 - BRL) * 0.4;
+        }
+      }
+      const taxSavedMonthly = Math.max(0, (inefficientAnnualTax / 12) - (annualTax / 12));
+
+      // Calculate cumulative ISA used including this month
+      const cumulativeIsaSavingsUsed = isaSavingsUsedSoFar + isaSavingsUsedThisMonth;
+
       // Return object matching renderDecisionPanel expectations
       return {
         // Context
         date: dateStr,
         taxYear,
         yearNumber: yearNum,
+        remainingMonths: effectiveRemainingMonths,
 
         // Fund values
         equity,
         bond,
         cash,
-        isa: 0, // ISA balance input not used in PWA logic
+        isa: 0, // Legacy field - ISA balance input not used
 
         // Glidepath minimums (match expected field names)
         adjEquityMin: adjEquity,
@@ -2319,11 +2436,25 @@
         isaDraw: isa,
         totalMonthlyNet: monthlyNet,
 
+        // Year-level tax efficiency
+        isTaxEfficientYear,
+        yearlyIsaSavingsAllocation,
+        cumulativeIsaSavingsUsed,
+        isaSavingsUsedThisMonth,
+
+        // Tax tracking
+        taxPaidYTD,
+        taxProjectedAnnual,
+        taxSavedMonthly,
+        taxSavedYTD: taxSavedMonthly * monthsPassed,
+        taxSavedProjectedAnnual: taxSavedMonthly * 12,
+
         // Status flags
-        taxEfficient: !inProtection && boostAmount <= 50, // Standard mode is "tax efficient"
+        taxEfficient: isTaxEfficientYear && !protectionInducedTaxEfficiency,
         inProtection,
         protectionReason: inProtection ? reason : null,
         consecutiveCashDraws: consec,
+        protectionInducedTaxEfficiency,
 
         // Tax boost
         boostAmount: boostAmount > 50 ? boostAmount : 0,
@@ -2349,18 +2480,22 @@
           totalGrowth,
           minGrowth,
           consec,
-          stdSipp: stdSippMonthly,
+          stdSipp: sipp, // Current SIPP draw
           // Input values for debugging
           inputs: {
             baseSalary: settings.baseSalary,
-            targetGross: settings.baseSalary * cumInf,
+            confirmedSalary,
+            targetGross: target,
             cumInf,
             yearNum,
             taxYear,
             OTHER,
             STATE,
             PA,
-            BRL
+            BRL,
+            isTaxEfficientYear,
+            yearlyIsaSavingsAllocation,
+            grossIncomeToDate
           },
           taxInfo: {
             annualTaxable: annualTaxable,
@@ -2394,6 +2529,40 @@
       }
 
       try {
+        // Check if tax year wizard is needed for the selected month
+        const wizardCheck = await checkWizardNeeded(dateStr);
+
+        if (wizardCheck.showWizard) {
+          // Show the tax year setup wizard
+          const wizardContainer = document.getElementById('taxYearWizard');
+          wizardContainer.style.display = 'block';
+
+          // Store form values to use after wizard completes
+          window._pendingDecisionForm = { dateStr, equity, bond, cash };
+
+          // Initialize and show wizard
+          initTaxYearWizard(wizardContainer, dateStr, async (wizardResult) => {
+            // Wizard completed - hide it and proceed with calculation
+            wizardContainer.style.display = 'none';
+
+            if (wizardResult && wizardResult.completed) {
+              // Re-run the calculation now that tax year is configured
+              try {
+                currentDecision = await calcDecisionPWA(dateStr, equity, bond, cash);
+                const container = document.getElementById('decisionOutput');
+                renderDecisionPanel(currentDecision, container);
+                document.getElementById('saveBtn').disabled = false;
+              } catch (calcError) {
+                console.error('Decision error after wizard:', calcError);
+                alert('Error calculating decision: ' + calcError.message);
+              }
+            }
+            // If cancelled, just return without calculating
+          });
+          return;
+        }
+
+        // No wizard needed - proceed with calculation
         currentDecision = await calcDecisionPWA(dateStr, equity, bond, cash);
         const container = document.getElementById('decisionOutput');
         renderDecisionPanel(currentDecision, container);
