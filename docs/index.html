@@ -317,6 +317,34 @@
         font-size: 12px;
       }
 
+      /* Tabs container - scroll hint on mobile */
+      .tabs-wrapper {
+        position: relative;
+      }
+
+      .tabs-wrapper::after {
+        content: '→';
+        position: absolute;
+        top: 50%;
+        right: 4px;
+        transform: translateY(-50%);
+        color: var(--primary);
+        font-size: 16px;
+        font-weight: bold;
+        pointer-events: none;
+        opacity: 0.7;
+        animation: pulse-hint 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse-hint {
+        0%, 100% { opacity: 0.4; transform: translateY(-50%) translateX(0); }
+        50% { opacity: 1; transform: translateY(-50%) translateX(3px); }
+      }
+
+      .tabs-wrapper.scrolled-end::after {
+        display: none;
+      }
+
       /* Tabs - horizontal scroll on mobile */
       .tabs {
         overflow-x: auto;
@@ -324,13 +352,32 @@
         flex-wrap: nowrap;
         gap: 2px;
         padding: 3px;
+        padding-right: 24px; /* Space for scroll hint */
         margin-bottom: 16px;
+        scrollbar-width: thin;
+        position: relative;
+      }
+
+      /* Show scrollbar on mobile for discoverability */
+      .tabs::-webkit-scrollbar {
+        height: 4px;
+      }
+
+      .tabs::-webkit-scrollbar-track {
+        background: var(--card-alt);
+        border-radius: 2px;
+      }
+
+      .tabs::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 2px;
       }
 
       .tab {
         flex-shrink: 0;
-        padding: 10px 16px;
-        font-size: 13px;
+        padding: 8px 12px;
+        font-size: 12px;
+        white-space: nowrap;
       }
 
       /* Sub-tabs grid layout on mobile */
@@ -389,6 +436,18 @@
         padding: 14px 20px;
         font-size: 15px;
       }
+
+      /* Button groups - stack vertically on mobile */
+      .button-row {
+        flex-direction: column !important;
+      }
+    }
+
+    /* Button row helper class */
+    .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     /* Scrollable table container */
@@ -1042,6 +1101,119 @@
       margin-bottom: 12px;
     }
 
+    /* Mobile dropdown selector for tabs */
+    .mobile-tab-selector {
+      display: none;
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236366f1' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+    }
+
+    .mobile-tab-selector:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* Mobile responsive for tax years and history */
+    @media (max-width: 768px) {
+      .tax-years-full-page,
+      .history-full-page {
+        height: auto;
+        max-height: none;
+      }
+
+      .tax-year-tabs-container,
+      .history-tabs-container {
+        flex-wrap: wrap;
+        padding: 12px 0;
+      }
+
+      .tax-year-tabs,
+      .history-tabs {
+        display: none;
+      }
+
+      .tax-year-scroll-btn,
+      .history-scroll-btn {
+        display: none;
+      }
+
+      .mobile-tab-selector {
+        display: block;
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .tax-year-add-btn {
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      .tax-year-detail,
+      .history-detail {
+        padding: 12px 0;
+      }
+
+      .tax-year-detail-card,
+      .history-detail-card {
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+
+      .tax-year-grid,
+      .history-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .tax-year-field .value,
+      .history-field .value {
+        font-size: 16px;
+      }
+
+      .monthly-breakdown-table th,
+      .monthly-breakdown-table td {
+        padding: 8px 6px;
+        font-size: 12px;
+      }
+
+      .tax-year-actions,
+      .history-actions {
+        flex-direction: column;
+      }
+
+      .tax-year-actions button,
+      .history-actions button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tax-year-grid,
+      .history-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .monthly-breakdown-table {
+        font-size: 11px;
+      }
+
+      .monthly-breakdown-table th,
+      .monthly-breakdown-table td {
+        padding: 6px 4px;
+      }
+    }
+
     /* Data table */
     .data-table {
       border-collapse: collapse;
@@ -1306,7 +1478,7 @@
       pointer-events: none;
     }
   </style>
-  <script type="module" crossorigin src="./assets/main-CF2hrS-b.js"></script>
+  <script type="module" crossorigin src="./assets/main-ZC9cLl5x.js"></script>
 </head>
 <body>
   <!-- Global Loading Overlay -->
@@ -1340,12 +1512,14 @@
       </header>
 
       <!-- Tabs -->
-      <nav class="tabs">
-        <button class="tab active" data-tab="decision">Decision Tool</button>
-        <button class="tab" data-tab="stress">Stress Tester</button>
-        <button class="tab" data-tab="history">History</button>
-        <button class="tab" data-tab="taxyears">Tax Years</button>
-      </nav>
+      <div class="tabs-wrapper">
+        <nav class="tabs">
+          <button class="tab active" data-tab="decision">Decision</button>
+          <button class="tab" data-tab="stress">Stress Test</button>
+          <button class="tab" data-tab="history">History</button>
+          <button class="tab" data-tab="taxyears">Tax Years</button>
+        </nav>
+      </div>
 
       <!-- Decision Tool Tab -->
       <div id="decision-content" class="tab-content active">
@@ -1394,7 +1568,7 @@
                   </div>
                 </div>
 
-                <div style="margin-top: 24px; display: flex; gap: 12px;">
+                <div class="button-row" style="margin-top: 24px;">
                   <button type="submit">Calculate</button>
                   <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
                 </div>
@@ -1443,13 +1617,24 @@
                 <label>Target Gross Salary (£/yr)</label>
                 <input type="number" id="dsBaseSalary" value="30000">
               </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">State Pension (from HMRC Forecast)</h3>
+            <div class="alert alert-info" style="margin-bottom: 16px;">
+              Get your forecast at <a href="https://www.tax.service.gov.uk/check-your-state-pension/" target="_blank" style="color: var(--primary);">gov.uk/check-your-state-pension</a>
+            </div>
+            <div class="form-grid">
               <div class="form-group">
-                <label>State Pension (£/yr today's money)</label>
-                <input type="number" id="dsStatePension" value="12000">
+                <label>State Pension Start Date</label>
+                <input type="text" id="dsSpStartDate" placeholder="e.g. 21 April 2037">
               </div>
               <div class="form-group">
-                <label>Years Until State Pension</label>
-                <input type="number" id="dsStatePensionYear" value="12">
+                <label>Weekly Amount (£)</label>
+                <input type="number" id="dsSpWeeklyAmount" step="0.01" placeholder="e.g. 230.25">
+              </div>
+              <div class="form-group">
+                <label>Annual Amount (calculated)</label>
+                <input type="text" id="dsSpAnnualAmount" readonly style="background: var(--bg); cursor: not-allowed;">
               </div>
             </div>
 
@@ -1472,7 +1657,7 @@
               <strong>Protection Mode:</strong> Triggers after consecutive cash draws. Reduces withdrawal by the protection factor until growth funds recover above minimums + recovery buffer.
             </div>
 
-            <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="button-row" style="margin-top: 24px;">
               <button onclick="saveDecisionSettingsUI()">Save Settings</button>
               <button class="secondary" onclick="resetDecisionSettingsUI()">Reset to Defaults</button>
             </div>
@@ -1722,19 +1907,27 @@
               (But never more than the Basic Rate Limit, to avoid 40% tax)
             </div>
 
-            <h3 style="margin-top: 24px;">Other Pensions (Year 0)</h3>
+            <h3 style="margin-top: 24px;">Other Income (Year 0)</h3>
             <div class="form-grid">
               <div class="form-group">
                 <label>Other Income/Pension (£/yr)</label>
                 <input type="number" id="ssOther" value="0">
               </div>
+            </div>
+
+            <h3 style="margin-top: 24px;">State Pension</h3>
+            <div class="form-grid">
               <div class="form-group">
-                <label>State Pension (£/yr)</label>
-                <input type="number" id="ssStatePension" value="12000">
+                <label>SP Start Date</label>
+                <input type="text" id="ssSpStartDate" placeholder="e.g. 21 April 2037">
               </div>
               <div class="form-group">
-                <label>State Pension Start Year</label>
-                <input type="number" id="ssStatePensionYear" value="12">
+                <label>Weekly Amount (£)</label>
+                <input type="number" id="ssSpWeeklyAmount" step="0.01" placeholder="e.g. 230.25">
+              </div>
+              <div class="form-group">
+                <label>Annual Amount (calculated)</label>
+                <input type="text" id="ssSpAnnualAmount" readonly style="background: var(--bg); cursor: not-allowed;">
               </div>
             </div>
             <div class="alert alert-info" style="margin-top: 12px;">
@@ -1778,7 +1971,7 @@
               <strong>Break Glass Reserve:</strong> Emergency fund only accessed when main strategy would otherwise fail.
             </div>
 
-            <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="button-row" style="margin-top: 24px;">
               <button onclick="saveStressSettingsUI()">Save Settings</button>
               <button class="secondary" onclick="resetStressSettingsUI()">Reset to Defaults</button>
             </div>
@@ -1789,13 +1982,17 @@
       <!-- History Tab - Full Page View -->
       <div id="history-content" class="tab-content">
         <div class="history-full-page">
-          <!-- Horizontal scrolling month tabs -->
+          <!-- Horizontal scrolling month tabs (desktop) + dropdown (mobile) -->
           <div class="history-tabs-container">
             <button class="history-scroll-btn left" onclick="scrollHistoryTabs('left')">‹</button>
             <div class="history-tabs" id="historyTabs">
               <!-- Month tabs rendered dynamically -->
             </div>
             <button class="history-scroll-btn right" onclick="scrollHistoryTabs('right')">›</button>
+            <!-- Mobile dropdown selector -->
+            <select class="mobile-tab-selector" id="historyMobileSelector" onchange="selectHistoryEntry(this.value)">
+              <!-- Options rendered dynamically -->
+            </select>
           </div>
 
           <!-- Selected month detail view -->
@@ -1808,13 +2005,17 @@
       <!-- Tax Years Tab - Full Page View -->
       <div id="taxyears-content" class="tab-content">
         <div class="tax-years-full-page">
-          <!-- Horizontal scrolling year tabs -->
+          <!-- Horizontal scrolling year tabs (desktop) + dropdown (mobile) -->
           <div class="tax-year-tabs-container">
             <button class="tax-year-scroll-btn left" onclick="scrollTaxYearTabs('left')">‹</button>
             <div class="tax-year-tabs" id="taxYearTabs">
               <!-- Year tabs rendered dynamically -->
             </div>
             <button class="tax-year-scroll-btn right" onclick="scrollTaxYearTabs('right')">›</button>
+            <!-- Mobile dropdown selector -->
+            <select class="mobile-tab-selector" id="taxYearMobileSelector" onchange="selectTaxYear(this.value)">
+              <!-- Options rendered dynamically -->
+            </select>
             <button class="tax-year-add-btn" onclick="addTaxYear()">+ Add Year</button>
           </div>
 
