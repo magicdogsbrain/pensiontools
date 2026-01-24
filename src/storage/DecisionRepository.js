@@ -500,13 +500,19 @@ export async function getStatePensionForTaxYear(taxYear) {
 
   // If no SP data configured, return zeros
   if (!spStartDate || !spWeeklyAmount) {
+    // Still try to format the start date if available
+    let formattedStartDate = null;
+    if (spStartDate) {
+      const { formatStatePensionDate } = await import('../utils/StatePensionUtils.js');
+      formattedStartDate = formatStatePensionDate(spStartDate);
+    }
     return {
       amount: 0,
       monthly: 0,
       yearsUntil: 0,
       isReceiving: false,
       isFirstYear: false,
-      startDate: null
+      startDate: formattedStartDate
     };
   }
 

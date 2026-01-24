@@ -23,9 +23,15 @@ export function parseStatePensionDate(dateStr) {
     if (!isNaN(d.getTime())) return d;
   }
 
-  // Try UK format (21/04/2037)
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+  // Try UK format with slashes (21/04/2037)
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
     const [day, month, year] = dateStr.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  // Try UK format with dashes (21-04-2037)
+  if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
+    const [day, month, year] = dateStr.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
 
