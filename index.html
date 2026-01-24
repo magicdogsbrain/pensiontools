@@ -436,6 +436,18 @@
         padding: 14px 20px;
         font-size: 15px;
       }
+
+      /* Button groups - stack vertically on mobile */
+      .button-row {
+        flex-direction: column !important;
+      }
+    }
+
+    /* Button row helper class */
+    .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     /* Scrollable table container */
@@ -1555,7 +1567,7 @@
                   </div>
                 </div>
 
-                <div style="margin-top: 24px; display: flex; gap: 12px;">
+                <div class="button-row" style="margin-top: 24px;">
                   <button type="submit">Calculate</button>
                   <button type="button" class="success" onclick="saveCurrentDecision()" id="saveBtn" disabled>Save to History</button>
                 </div>
@@ -1644,7 +1656,7 @@
               <strong>Protection Mode:</strong> Triggers after consecutive cash draws. Reduces withdrawal by the protection factor until growth funds recover above minimums + recovery buffer.
             </div>
 
-            <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="button-row" style="margin-top: 24px;">
               <button onclick="saveDecisionSettingsUI()">Save Settings</button>
               <button class="secondary" onclick="resetDecisionSettingsUI()">Reset to Defaults</button>
             </div>
@@ -1958,7 +1970,7 @@
               <strong>Break Glass Reserve:</strong> Emergency fund only accessed when main strategy would otherwise fail.
             </div>
 
-            <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="button-row" style="margin-top: 24px;">
               <button onclick="saveStressSettingsUI()">Save Settings</button>
               <button class="secondary" onclick="resetStressSettingsUI()">Reset to Defaults</button>
             </div>
