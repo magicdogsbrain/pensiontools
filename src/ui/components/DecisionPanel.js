@@ -54,10 +54,11 @@ export function buildDecisionHTML(decision) {
 
   // ISA/Savings allocation progress (if tax-efficient year)
   if (isTaxEfficientYear && d.yearlyIsaSavingsAllocation > 0) {
+    // cumulativeIsaSavingsUsed already includes this month's ISA draw
     const used = d.cumulativeIsaSavingsUsed || 0;
     const total = d.yearlyIsaSavingsAllocation;
-    const remaining = Math.max(0, total - used - (d.isaDraw || 0));
-    const percentUsed = total > 0 ? ((used + (d.isaDraw || 0)) / total) * 100 : 0;
+    const remaining = Math.max(0, total - used);
+    const percentUsed = total > 0 ? (used / total) * 100 : 0;
 
     html += `<div class="isa-progress-card">
       <h4>ISA/Savings Allocation</h4>
@@ -65,7 +66,7 @@ export function buildDecisionHTML(decision) {
         <div class="isa-progress-fill" style="width: ${Math.min(percentUsed, 100)}%"></div>
       </div>
       <div class="isa-progress-stats">
-        <span>Used: ${formatCurrency(used + (d.isaDraw || 0))} of ${formatCurrency(total)}</span>
+        <span>Used: ${formatCurrency(used)} of ${formatCurrency(total)}</span>
         <span>Remaining: ${formatCurrency(remaining)}</span>
       </div>
     </div>`;
