@@ -17,31 +17,76 @@ import { getTaxYear, getTaxYearStart, getTaxYearEnd } from './DateUtils.js';
 export function parseStatePensionDate(dateStr) {
   if (!dateStr) return null;
 
-  // Try ISO format first (2037-04-21)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const d = new Date(dateStr);
+  const months = {
+    january: 0, jan: 0,
+    february: 1, feb: 1,
+    march: 2, mar: 2,
+    april: 3, apr: 3,
+    may: 4,
+    june: 5, jun: 5,
+    july: 6, jul: 6,
+    august: 7, aug: 7,
+    september: 8, sep: 8, sept: 8,
+    october: 9, oct: 9,
+    november: 10, nov: 10,
+    december: 11, dec: 11
+  };
+
+  // Normalize: trim and collapse whitespace
+  const s = dateStr.trim().replace(/\s+/g, ' ');
+
+  // Try ISO format (2037-04-21)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(s);
     if (!isNaN(d.getTime())) return d;
   }
 
-  // Try UK format with slashes (21/04/2037)
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-    const [day, month, year] = dateStr.split('/').map(Number);
+  // Try UK format with slashes (21/04/2037 or 21/4/2037)
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const [day, month, year] = s.split('/').map(Number);
     return new Date(year, month - 1, day);
   }
 
-  // Try UK format with dashes (21-04-2037)
-  if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
-    const [day, month, year] = dateStr.split('-').map(Number);
+  // Try UK format with dashes (21-04-2037 or 21-4-2037)
+  if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(s)) {
+    const [day, month, year] = s.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
 
-  // Try natural format (21 April 2037)
-  const months = {
-    january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-    july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
-  };
+  // Try "21 April 2037" or "21 Apr 2037"
+  let match = s.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/i);
+  if (match) {
+    const day = parseInt(match[1]);
+    const month = months[match[2].toLowerCase()];
+    const year = parseInt(match[3]);
+    if (month !== undefined) {
+      return new Date(year, month, day);
+    }
+  }
 
-  const match = dateStr.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/i);
+  // Try "April 21 2037" or "Apr 21 2037"
+  match = s.match(/^(\w+)\s+(\d{1,2})\s+(\d{4})$/i);
+  if (match) {
+    const month = months[match[1].toLowerCase()];
+    const day = parseInt(match[2]);
+    const year = parseInt(match[3]);
+    if (month !== undefined) {
+      return new Date(year, month, day);
+    }
+  }
+
+  // Try "April 21st 2037", "April 21st, 2037", "21st April 2037" etc.
+  match = s.match(/^(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/i);
+  if (match) {
+    const month = months[match[1].toLowerCase()];
+    const day = parseInt(match[2]);
+    const year = parseInt(match[3]);
+    if (month !== undefined) {
+      return new Date(year, month, day);
+    }
+  }
+
+  match = s.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+(\w+),?\s+(\d{4})$/i);
   if (match) {
     const day = parseInt(match[1]);
     const month = months[match[2].toLowerCase()];

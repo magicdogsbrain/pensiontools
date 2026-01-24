@@ -263,14 +263,14 @@ function renderStressStep(step) {
             <div class="wizard-grid-item">
               <label>Start Date (from HMRC)</label>
               <div class="wizard-input">
-                <input type="text" id="wizSpStartDate" value="${wizardData.spStartDate}" placeholder="e.g. 21 April 2037" style="width: 100%;">
+                <input type="text" id="wizSpStartDate" value="${wizardData.spStartDate}" placeholder="e.g. 6 May 2040" style="width: 100%;">
               </div>
             </div>
             <div class="wizard-grid-item">
               <label>Weekly Amount (from HMRC)</label>
               <div class="wizard-input">
                 <span class="wizard-unit">£</span>
-                <input type="number" id="wizSpWeeklyAmount" value="${wizardData.spWeeklyAmount || ''}" step="0.01" placeholder="e.g. 230.25">
+                <input type="number" id="wizSpWeeklyAmount" value="${wizardData.spWeeklyAmount || ''}" step="0.01" placeholder="e.g. 221.20">
               </div>
             </div>
           </div>
